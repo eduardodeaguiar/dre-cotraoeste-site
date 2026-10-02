@@ -16,13 +16,9 @@
   --text-primary:#1A1F2B; --text-secondary:#4A5568; --text-muted:#8896A6; --text-light:#B0BBC8;
   --blue:#3B82C4; --blue-light:#EBF3FC; --amber:#C89020; --red:#C0392B;
   --n1:#292929; --n2:#4D4D4D;
-  /* fundo da pagina: o mesmo preto do rodape, para a faixa do "Powered by"
-     deixar de ser uma barra solta e virar continuacao da pagina.
-     --bg (cinza claro) continua servindo o vao entre os meses dentro da tabela. */
-  --page:#15151A;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--page);color:var(--text-primary);
+body{margin:0;background:var(--bg);color:var(--text-primary);
   font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
 button{font:inherit;cursor:pointer}
 .oculto{display:none!important}
@@ -41,7 +37,7 @@ header .marca{height:30px;background:#fff;border-radius:6px;padding:4px 9px;
    branco com invert() sobre fundo claro dava um cinza barrento.
    A logo vai embutida em 424px e e exibida em 112px: a versao anterior
    tinha 83px nativos e saia borrada ao ser ampliada para 150px. */
-.rodape{background:var(--page);margin-top:22px;padding:13px 0 15px;
+.rodape{background:#15151a;margin-top:22px;padding:13px 0 15px;
   text-align:center;color:#6b6b75;font-size:10px;text-transform:uppercase;
   letter-spacing:1.5px;font-weight:700;line-height:1.6}
 .rodape img{display:block;margin:2px auto 0;width:112px;max-width:46%;opacity:.92}
