@@ -32,158 +32,14 @@ header h1{margin:0;font-size:15px;font-weight:500;letter-spacing:.2px;
    A pastilha branca preserva a marca em vez de recolorir. */
 header .marca{height:30px;background:#fff;border-radius:6px;padding:4px 9px;
   display:block}
-.rodape{text-align:center;color:var(--text-muted);font-size:11px;
-  letter-spacing:.3px;padding:26px 0 34px}
-.rodape img{display:block;margin:5px auto 0;height:22px;opacity:.55;
-  filter:invert(38%) sepia(6%) saturate(430%) hue-rotate(179deg) brightness(93%)}
-header .emp{color:var(--green);font-weight:500}
-header .dir{margin-left:auto;display:flex;align-items:center;gap:12px;
-  font-size:12px;color:#B0BBC8}
-header button{background:rgba(255,255,255,.1);color:#fff;border:0;
-  padding:6px 12px;border-radius:6px;font-size:12px}
-header button:hover{background:rgba(255,255,255,.2)}
-
-nav{background:var(--surface);border-bottom:1px solid var(--border);
-  padding:0 22px;display:flex;gap:2px;position:sticky;top:0;z-index:30}
-nav button{background:none;border:0;padding:13px 16px;font-size:13px;
-  font-weight:500;color:var(--text-secondary);border-bottom:2px solid transparent}
-nav button:hover{color:var(--text-primary)}
-nav button.on{color:var(--green-dark);border-bottom-color:var(--green)}
-
-main{padding:20px 22px 60px}
-.view{display:none}.view.on{display:block}
-
-/* ---------- barra de ferramentas ---------- */
-.barra{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
-.barra label{font-size:12px;color:var(--text-secondary)}
-select,input[type=text],input[type=password],input[type=email],textarea{
-  font:inherit;padding:7px 10px;border:1px solid var(--border);border-radius:6px;
-  background:var(--surface);color:var(--text-primary)}
-.btn{background:var(--green);color:#fff;border:0;padding:8px 14px;border-radius:6px;
-  font-size:13px;font-weight:500}
-.btn:hover{background:var(--green-dark)}
-.btn.sec{background:var(--surface);color:var(--text-secondary);
-  border:1px solid var(--border)}
-.btn.sec:hover{border-color:var(--text-muted);color:var(--text-primary)}
-
-/* ---------- barra de grupos (padrao BI Frotas) ---------- */
-.ctl{display:flex;flex-wrap:wrap;align-items:center;gap:0;margin-bottom:14px;
-  background:var(--surface);border:1px solid var(--border);border-radius:9px;
-  padding:7px 10px}
-.cg{display:flex;align-items:center;gap:5px;padding:0 11px}
-.cg .cl{font-size:11px;color:var(--text-muted);text-transform:uppercase;
-  letter-spacing:.4px;margin-right:3px}
-.cg button{background:none;border:1px solid transparent;border-radius:6px;
-  padding:4px 10px;font-size:12.5px;color:var(--text-secondary)}
-.cg button:hover{background:var(--border-light);color:var(--text-primary)}
-.cg button.active{background:var(--green-light);border-color:var(--green);
-  color:var(--green-dark);font-weight:600}
-.cs{width:1px;align-self:stretch;background:var(--border);margin:2px 0}
-
-/* ---------- tabela ---------- */
-.quadro{background:var(--surface);border:1px solid var(--border);border-radius:10px;
-  overflow:auto;max-height:calc(100vh - 210px)}
-table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
-thead th{position:sticky;top:var(--t1,0);z-index:20;background:var(--dark);color:#fff;
-  font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;
-  padding:10px 12px;text-align:right;white-space:nowrap}
-/* Escopo na PRIMEIRA linha: ':first-child' solto pega tambem o 'R$' de janeiro
-   na linha de baixo, que ia para a esquerda e grudava como se fosse a coluna
-   Conta -- era o bloco branco na regua de litros. */
-thead tr:first-child th:first-child{text-align:left;left:0;z-index:25}
-/* A primeira coluna fica com largura FIXA nas tres linhas do cabecalho e no
-   corpo. Deixar o navegador decidir fazia a etiqueta da regua parar em 330px
-   enquanto a coluna ia a 392, e sobrava um branco entre as duas. */
-#t-dre thead tr:first-child th:first-child,
-#t-dre tbody td:first-child{width:370px;min-width:370px;max-width:370px}
-#t-dre tbody td:first-child{overflow:hidden;text-overflow:ellipsis}
-/* O risco separa um mes do outro e atravessa as colunas de AV e AH: sem ele,
-   com tres colunas por mes, a vista perde onde um periodo acaba. */
-thead th.ini,tbody td.ini{border-left:2px solid var(--border)}
-thead tr:first-child th.ini{border-left:2px solid rgba(255,255,255,.28)}
-tbody td{padding:5px 12px;text-align:right;white-space:nowrap;
-  border-bottom:1px solid var(--border-light);font-variant-numeric:tabular-nums}
-tbody td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);
-  z-index:10;border-right:1px solid var(--border)}
-tbody tr:hover td{background:#FAFCFE}
-tbody tr:hover td:first-child{background:#FAFCFE}
-
-tr.n0 td{background:var(--n1);color:#fff;font-weight:600}
-/* A Receita Operacional Bruta fica congelada: e a referencia de toda a AV, e
-   rolar a tabela sem ela na tela tira o denominador de vista. */
-tr.fixa td{position:sticky;top:var(--t4,78px);z-index:15}
-tr.fixa td:first-child{z-index:18}
-tr.n0 td:first-child{background:var(--n1)}
-tr.n0:hover td,tr.n0:hover td:first-child{background:#333}
-tr.n1 td{background:var(--n2);color:#fff;font-weight:500}
-tr.n1 td:first-child{background:var(--n2)}
-tr.n1:hover td,tr.n1:hover td:first-child{background:#5a5a5a}
-/* As linhas de resultado no verde da marca: sao o que se procura primeiro
-   quando se abre um DRE, e precisam saltar antes de qualquer outra coisa. */
-tr.kpi td{background:var(--green);font-style:italic;font-weight:700;color:#fff}
-tr.kpi td:first-child{background:var(--green)}
-tr.kpi:hover td,tr.kpi:hover td:first-child{background:#179134}
-tr.kpi .neg{color:#FFD6D0}
-tr.kpi td.col-av{color:#D8F3E0}
-tr.kpi td.col-ah{color:#CFE9D8}
-tr.kpi td.col-ah.sobe{color:#B9F7D2}
-tr.kpi td.col-ah.desce{color:#FFC2BA}
-tr.vazia td{height:7px;padding:0;background:var(--bg)!important;border:0}
-
-.neg{color:var(--red)}
-tr.n0 .neg,tr.n1 .neg{color:#FF9A8F}
-/* AV acompanha o tamanho da linha e se separa pela COR. */
-thead tr.regua th{position:sticky;top:var(--t3,56px);z-index:20;background:#20262F;
-  color:#C9D3DE;font-size:10px;font-weight:600;padding:4px 12px;
-  border-top:1px solid #333B46;text-align:right}
-thead tr:first-child th:first-child .reg-rot{display:block;margin-top:7px;
-  font-size:10px;font-weight:500;color:var(--text-light);text-transform:none;
-  letter-spacing:0}
-  text-transform:none;letter-spacing:0;text-align:left}
-thead tr.regua th.mediaCol{background:#12772A;color:#D8F3E0}
-thead tr:nth-child(2) th{top:var(--t2,34px)}
-thead th.sub{font-size:10px;padding:4px 12px;background:var(--dark-soft);
-  letter-spacing:.3px}
-thead th.mediaCol{background:var(--media-cab)}
-td.mediaCol{background:var(--media-bg)}
-tbody tr:hover td.mediaCol{background:#E6F6EB}
-tr.n0:hover td.mediaCol{background:#1f1f1f}
-tr.n1:hover td.mediaCol{background:#565656}
-tr.kpi:hover td.mediaCol{background:#0F6B25}
-tr.det:hover td.mediaCol{background:#EDF8F0}
-tr.n0 td.mediaCol{background:var(--n1)}
-tr.n1 td.mediaCol{background:var(--n2)}
-tr.kpi td.mediaCol{background:var(--green-dark)}
-tr.det td.mediaCol{background:#F4FBF6}
-/* 'tr td.col-av' e nao 'td.col-av': a regra da linha tem um elemento a mais e
-   ganharia na especificidade -- a AV da conta saia cinza. */
-tr td.col-av{color:var(--green-dark);font-weight:500;font-size:11.5px}
-tr.n0 td.col-av,tr.n1 td.col-av{color:#B7E08F}
-/* A AH tem o mesmo corpo da AV; muda a cor, e a cor aqui quer dizer MELHOROU
-   ou PIOROU, nao subiu ou desceu. Despesa vive negativa: crescer sai vermelho. */
-tr td.col-ah{color:var(--text-muted);font-weight:500;font-size:11.5px}
-tr td.col-ah.sobe{color:#12855A}
-tr td.col-ah.desce{color:#C1121F}
-tr.n0 td.col-ah,tr.n1 td.col-ah{color:#C4CBD6}
-tr.n0 td.col-ah.sobe,tr.n1 td.col-ah.sobe{color:#5FD89E}
-tr.n0 td.col-ah.desce,tr.n1 td.col-ah.desce{color:#FF9A8F}
-.caret.mais{color:var(--green);font-weight:700}
-tr.det td{font-size:12px;font-style:italic;color:var(--text-muted);
-  background:#FCFDFE}
-tr.det td:first-child{background:#FCFDFE}
-tr.det td:first-child::before{content:"↳ ";color:var(--text-light)}
-tr.det:hover td,tr.det:hover td:first-child{background:#F6F9FB}
-td.man{background:var(--blue-light)!important;color:var(--blue);font-weight:600;
-  cursor:pointer;position:relative}
-td.man::after{content:"✎";position:absolute;right:3px;top:1px;font-size:9px;opacity:.75}
-td.edit{cursor:cell}
-td.edit:hover{outline:1.5px solid var(--green);outline-offset:-1.5px}
-.rot{display:inline-block}
-.caret{display:inline-block;width:14px;color:var(--text-muted);cursor:pointer;
-  user-select:none;font-size:10px}
-tr.n0 .caret,tr.n1 .caret{color:rgba(255,255,255,.6)}
-.temnota{color:var(--amber);font-size:11px;margin-left:5px;cursor:help}
-
+/* Igual ao rodape da sidebar do BI Frotas: faixa escura #15151a, rotulo em
+   caixa alta espacada e o logo BRANCO sem filtro nenhum. Antes eu recolorizava
+   o PNG branco com invert() sobre fundo claro -- virava cinza barrento. */
+.rodape{background:#15151a;margin-top:34px;padding:22px 0 26px;
+  text-align:center;color:#6b6b75;font-size:10px;text-transform:uppercase;
+  letter-spacing:1.5px;font-weight:700;line-height:1.9}
+.rodape img{display:block;margin:3px auto 0;width:150px;max-width:62%;
+  opacity:.92}
 /* ---------- simulador ---------- */
 .sim-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
   gap:14px;align-items:start}
@@ -384,7 +240,6 @@ table.sim input:focus{outline:2px solid var(--green);outline-offset:-1px}
     <div id="c-atu"></div>
   </section>
 </main>
-
 <footer class="rodape">Powered by<br>
   <img src="data:image/png;base64,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" alt="RecORP"></footer>
 
@@ -1045,7 +900,20 @@ function renderFonte(){
       agregadas no Python por (mês × chave) e só o resultado sobe — cerca de
       <b>760 linhas</b>. É por isso que a tela abre instantânea.
       Para atualizar: rodar <code>montar_fato.py</code> e <code>publicar.py</code>.
+    </div>
+    <div class="barra" style="margin-top:4px">
+      <button class="btn" id="f-xlsx">↓ Exportar para Excel</button>
+      <span style="font-size:12px;color:var(--text-muted)">
+        quatro abas: o DRE como está na tela, a base agregada, as contas e o
+        registro de ajustes</span>
     </div>`;
+  document.getElementById("f-xlsx").onclick = async e => {
+    const b = e.target, txt = b.textContent;
+    b.textContent = "gerando..."; b.disabled = true;
+    try { await exportarXLSX(); b.textContent = "✓ baixado"; }
+    catch(err){ b.textContent = txt; alert("Não consegui exportar: "+(err.message||err)); }
+    finally { setTimeout(()=>{ b.textContent = txt; b.disabled = false; }, 2000); }
+  };
 }
 
 /* ===================== simulador de combustível =====================
@@ -1301,6 +1169,73 @@ function renderSim(){
       renderSim();
     };
   });
+}
+
+
+/* ===================== exportar para Excel =====================
+   A base bruta (234 mil linhas) nunca vem para o navegador -- e por isso que a
+   tela abre instantanea. O que da para exportar e o que o app TEM: o DRE como
+   esta na tela, os agregados que o alimentam, o mapeamento de contas e o
+   registro de ajustes. A biblioteca so e baixada no clique.            */
+let _xlsxCarregado = null;
+function carregarXLSX(){
+  if(_xlsxCarregado) return _xlsxCarregado;
+  _xlsxCarregado = new Promise((ok, erro)=>{
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload = ()=> ok(window.XLSX);
+    s.onerror = ()=> erro(new Error("não consegui baixar a biblioteca de Excel"));
+    document.head.appendChild(s);
+  });
+  return _xlsxCarregado;
+}
+
+async function exportarXLSX(){
+  const XLSX = await carregarXLSX();
+  const wb = XLSX.utils.book_new();
+  const rot = {}; S.estrutura.forEach(i=>rot[i.linha]=i.rotulo);
+
+  /* --- 1. o DRE como esta na tela --- */
+  const ms = mesesVisiveis();
+  const calc = {}; ms.forEach(m=>calc[m]=calcular(m));
+  const cols = montarColunas(ms);
+  const cab = ["Linha","Conta","Nível"];
+  cols.forEach(c=>{ cab.push(c.rotulo); if(S.av) cab.push(c.rotulo+" AV"); });
+  const dre = [cab];
+  for(const it of S.estrutura){
+    if(!it.rotulo) continue;
+    const l = [it.linha, it.rotulo, it.nivel||0];
+    cols.forEach(c=>{
+      const v = valorCol(calc, it.linha, c);
+      l.push(v===null||v===undefined||isNaN(v) ? null : +v.toFixed(2));
+      if(S.av){ const a = av(calc, it.linha, c); l.push(a===null?null:+(a*100).toFixed(1)); }
+    });
+    dre.push(l);
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dre), "DRE");
+
+  /* --- 2. os agregados que alimentam tudo --- */
+  const base = [["Mês","Chave","Valor"]];
+  Object.keys(S.fato).sort().forEach(m=>
+    Object.keys(S.fato[m]).sort().forEach(k=>
+      base.push([m, k, +(+S.fato[m][k]).toFixed(2)])));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(base), "Base agregada");
+
+  /* --- 3. mapeamento de contas --- */
+  const ct = [["Conta","Linha do DRE","Situação","Motivo"]];
+  S.contas.forEach(c=> ct.push([c.conta, c.linha ? rot[c.linha]||c.linha : "",
+    c.fora ? "fora do DRE" : (c.linha ? "classificada" : "SEM LINHA"), c.motivo||""]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ct), "Contas");
+
+  /* --- 4. registro de ajustes e notas --- */
+  const aj = [["Usuário","Mês","De","Para","Plano de contas","Comentário","Quando"]];
+  linhasDoRegistro().forEach(i=> aj.push([i.autor||"", i.mes?rotMes(i.mes):"",
+    i.de==null?null:+i.de.toFixed(2), i.para==null?null:+i.para.toFixed(2),
+    i.conta||"", i.texto||"", i.quando?new Date(i.quando).toLocaleString("pt-BR"):""]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aj), "Ajustes e notas");
+
+  const hoje = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `DRE Cotraoeste ${hoje}.xlsx`);
 }
 
 /* ===================== atualizações ===================== */
