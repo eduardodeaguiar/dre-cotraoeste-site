@@ -1,0 +1,1461 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DRE Gerencial · Cotraoeste</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F7F9; --surface:#FFFFFF; --border:#E4E9EE; --border-light:#F0F2F5;
+  --green:#1A9E39; --green-dark:#12772A; --green-light:#E3F5E8;
+  --media-bg:#F0FAF2; --media-cab:#1A9E39;
+  --dark:#191E25; --dark-soft:#2A3040;
+  --text-primary:#1A1F2B; --text-secondary:#4A5568; --text-muted:#8896A6; --text-light:#B0BBC8;
+  --blue:#3B82C4; --blue-light:#EBF3FC; --amber:#C89020; --red:#C0392B;
+  --n1:#292929; --n2:#4D4D4D;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text-primary);
+  font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+button{font:inherit;cursor:pointer}
+.oculto{display:none!important}
+
+/* ---------- topo ---------- */
+header{background:var(--dark);color:#fff;padding:14px 22px;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+header h1{margin:0;font-size:15px;font-weight:500;letter-spacing:.2px;
+  color:#C9D3DE;padding-left:14px;border-left:1px solid rgba(255,255,255,.18)}
+/* A logo e verde sobre claro; num cabecalho escuro o subtitulo cinza some.
+   A pastilha branca preserva a marca em vez de recolorir. */
+header .marca{height:30px;background:#fff;border-radius:6px;padding:4px 9px;
+  display:block}
+.rodape{text-align:center;color:var(--text-muted);font-size:11px;
+  letter-spacing:.3px;padding:26px 0 34px}
+.rodape img{display:block;margin:5px auto 0;height:22px;opacity:.55;
+  filter:invert(38%) sepia(6%) saturate(430%) hue-rotate(179deg) brightness(93%)}
+header .emp{color:var(--green);font-weight:500}
+header .dir{margin-left:auto;display:flex;align-items:center;gap:12px;
+  font-size:12px;color:#B0BBC8}
+header button{background:rgba(255,255,255,.1);color:#fff;border:0;
+  padding:6px 12px;border-radius:6px;font-size:12px}
+header button:hover{background:rgba(255,255,255,.2)}
+
+nav{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 22px;display:flex;gap:2px;position:sticky;top:0;z-index:30}
+nav button{background:none;border:0;padding:13px 16px;font-size:13px;
+  font-weight:500;color:var(--text-secondary);border-bottom:2px solid transparent}
+nav button:hover{color:var(--text-primary)}
+nav button.on{color:var(--green-dark);border-bottom-color:var(--green)}
+
+main{padding:20px 22px 60px}
+.view{display:none}.view.on{display:block}
+
+/* ---------- barra de ferramentas ---------- */
+.barra{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.barra label{font-size:12px;color:var(--text-secondary)}
+select,input[type=text],input[type=password],input[type=email],textarea{
+  font:inherit;padding:7px 10px;border:1px solid var(--border);border-radius:6px;
+  background:var(--surface);color:var(--text-primary)}
+.btn{background:var(--green);color:#fff;border:0;padding:8px 14px;border-radius:6px;
+  font-size:13px;font-weight:500}
+.btn:hover{background:var(--green-dark)}
+.btn.sec{background:var(--surface);color:var(--text-secondary);
+  border:1px solid var(--border)}
+.btn.sec:hover{border-color:var(--text-muted);color:var(--text-primary)}
+
+/* ---------- barra de grupos (padrao BI Frotas) ---------- */
+.ctl{display:flex;flex-wrap:wrap;align-items:center;gap:0;margin-bottom:14px;
+  background:var(--surface);border:1px solid var(--border);border-radius:9px;
+  padding:7px 10px}
+.cg{display:flex;align-items:center;gap:5px;padding:0 11px}
+.cg .cl{font-size:11px;color:var(--text-muted);text-transform:uppercase;
+  letter-spacing:.4px;margin-right:3px}
+.cg button{background:none;border:1px solid transparent;border-radius:6px;
+  padding:4px 10px;font-size:12.5px;color:var(--text-secondary)}
+.cg button:hover{background:var(--border-light);color:var(--text-primary)}
+.cg button.active{background:var(--green-light);border-color:var(--green);
+  color:var(--green-dark);font-weight:600}
+.cs{width:1px;align-self:stretch;background:var(--border);margin:2px 0}
+
+/* ---------- tabela ---------- */
+.quadro{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  overflow:auto;max-height:calc(100vh - 210px)}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+thead th{position:sticky;top:var(--t1,0);z-index:20;background:var(--dark);color:#fff;
+  font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;
+  padding:10px 12px;text-align:right;white-space:nowrap}
+/* Escopo na PRIMEIRA linha: ':first-child' solto pega tambem o 'R$' de janeiro
+   na linha de baixo, que ia para a esquerda e grudava como se fosse a coluna
+   Conta -- era o bloco branco na regua de litros. */
+thead tr:first-child th:first-child{text-align:left;left:0;z-index:25}
+/* A primeira coluna fica com largura FIXA nas tres linhas do cabecalho e no
+   corpo. Deixar o navegador decidir fazia a etiqueta da regua parar em 330px
+   enquanto a coluna ia a 392, e sobrava um branco entre as duas. */
+#t-dre thead tr:first-child th:first-child,
+#t-dre tbody td:first-child{width:370px;min-width:370px;max-width:370px}
+#t-dre tbody td:first-child{overflow:hidden;text-overflow:ellipsis}
+/* O risco separa um mes do outro e atravessa as colunas de AV e AH: sem ele,
+   com tres colunas por mes, a vista perde onde um periodo acaba. */
+thead th.ini,tbody td.ini{border-left:2px solid var(--border)}
+thead tr:first-child th.ini{border-left:2px solid rgba(255,255,255,.28)}
+tbody td{padding:5px 12px;text-align:right;white-space:nowrap;
+  border-bottom:1px solid var(--border-light);font-variant-numeric:tabular-nums}
+tbody td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);
+  z-index:10;border-right:1px solid var(--border)}
+tbody tr:hover td{background:#FAFCFE}
+tbody tr:hover td:first-child{background:#FAFCFE}
+
+tr.n0 td{background:var(--n1);color:#fff;font-weight:600}
+/* A Receita Operacional Bruta fica congelada: e a referencia de toda a AV, e
+   rolar a tabela sem ela na tela tira o denominador de vista. */
+tr.fixa td{position:sticky;top:var(--t4,78px);z-index:15}
+tr.fixa td:first-child{z-index:18}
+tr.n0 td:first-child{background:var(--n1)}
+tr.n0:hover td,tr.n0:hover td:first-child{background:#333}
+tr.n1 td{background:var(--n2);color:#fff;font-weight:500}
+tr.n1 td:first-child{background:var(--n2)}
+tr.n1:hover td,tr.n1:hover td:first-child{background:#5a5a5a}
+/* As linhas de resultado no verde da marca: sao o que se procura primeiro
+   quando se abre um DRE, e precisam saltar antes de qualquer outra coisa. */
+tr.kpi td{background:var(--green);font-style:italic;font-weight:700;color:#fff}
+tr.kpi td:first-child{background:var(--green)}
+tr.kpi:hover td,tr.kpi:hover td:first-child{background:#179134}
+tr.kpi .neg{color:#FFD6D0}
+tr.kpi td.col-av{color:#D8F3E0}
+tr.kpi td.col-ah{color:#CFE9D8}
+tr.kpi td.col-ah.sobe{color:#B9F7D2}
+tr.kpi td.col-ah.desce{color:#FFC2BA}
+tr.vazia td{height:7px;padding:0;background:var(--bg)!important;border:0}
+
+.neg{color:var(--red)}
+tr.n0 .neg,tr.n1 .neg{color:#FF9A8F}
+/* AV acompanha o tamanho da linha e se separa pela COR. */
+thead tr.regua th{position:sticky;top:var(--t3,56px);z-index:20;background:#20262F;
+  color:#C9D3DE;font-size:10px;font-weight:600;padding:4px 12px;
+  border-top:1px solid #333B46;text-align:right}
+thead tr:first-child th:first-child .reg-rot{display:block;margin-top:7px;
+  font-size:10px;font-weight:500;color:var(--text-light);text-transform:none;
+  letter-spacing:0}
+  text-transform:none;letter-spacing:0;text-align:left}
+thead tr.regua th.mediaCol{background:#12772A;color:#D8F3E0}
+thead tr:nth-child(2) th{top:var(--t2,34px)}
+thead th.sub{font-size:10px;padding:4px 12px;background:var(--dark-soft);
+  letter-spacing:.3px}
+thead th.mediaCol{background:var(--media-cab)}
+td.mediaCol{background:var(--media-bg)}
+tbody tr:hover td.mediaCol{background:#E6F6EB}
+tr.n0:hover td.mediaCol{background:#1f1f1f}
+tr.n1:hover td.mediaCol{background:#565656}
+tr.kpi:hover td.mediaCol{background:#0F6B25}
+tr.det:hover td.mediaCol{background:#EDF8F0}
+tr.n0 td.mediaCol{background:var(--n1)}
+tr.n1 td.mediaCol{background:var(--n2)}
+tr.kpi td.mediaCol{background:var(--green-dark)}
+tr.det td.mediaCol{background:#F4FBF6}
+/* 'tr td.col-av' e nao 'td.col-av': a regra da linha tem um elemento a mais e
+   ganharia na especificidade -- a AV da conta saia cinza. */
+tr td.col-av{color:var(--green-dark);font-weight:500;font-size:11.5px}
+tr.n0 td.col-av,tr.n1 td.col-av{color:#B7E08F}
+/* A AH tem o mesmo corpo da AV; muda a cor, e a cor aqui quer dizer MELHOROU
+   ou PIOROU, nao subiu ou desceu. Despesa vive negativa: crescer sai vermelho. */
+tr td.col-ah{color:var(--text-muted);font-weight:500;font-size:11.5px}
+tr td.col-ah.sobe{color:#12855A}
+tr td.col-ah.desce{color:#C1121F}
+tr.n0 td.col-ah,tr.n1 td.col-ah{color:#C4CBD6}
+tr.n0 td.col-ah.sobe,tr.n1 td.col-ah.sobe{color:#5FD89E}
+tr.n0 td.col-ah.desce,tr.n1 td.col-ah.desce{color:#FF9A8F}
+.caret.mais{color:var(--green);font-weight:700}
+tr.det td{font-size:12px;font-style:italic;color:var(--text-muted);
+  background:#FCFDFE}
+tr.det td:first-child{background:#FCFDFE}
+tr.det td:first-child::before{content:"↳ ";color:var(--text-light)}
+tr.det:hover td,tr.det:hover td:first-child{background:#F6F9FB}
+td.man{background:var(--blue-light)!important;color:var(--blue);font-weight:600;
+  cursor:pointer;position:relative}
+td.man::after{content:"✎";position:absolute;right:3px;top:1px;font-size:9px;opacity:.75}
+td.edit{cursor:cell}
+td.edit:hover{outline:1.5px solid var(--green);outline-offset:-1.5px}
+.rot{display:inline-block}
+.caret{display:inline-block;width:14px;color:var(--text-muted);cursor:pointer;
+  user-select:none;font-size:10px}
+tr.n0 .caret,tr.n1 .caret{color:rgba(255,255,255,.6)}
+.temnota{color:var(--amber);font-size:11px;margin-left:5px;cursor:help}
+
+/* ---------- simulador ---------- */
+.sim-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
+  gap:14px;align-items:start}
+.sim-cx{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:16px 18px}
+.sim-cx.destaque{border-color:var(--green);box-shadow:0 0 0 1px var(--green-muted)}
+.sim-cx h3{margin:0 0 2px;font-size:14px}
+.sim-cx .sub{font-size:12px;color:var(--text-muted);margin-bottom:12px}
+table.sim{width:100%;border-collapse:collapse;font-size:13px}
+table.sim td{padding:5px 0;border-bottom:1px solid var(--border-light)}
+table.sim td.num{text-align:right;font-variant-numeric:tabular-nums;width:130px}
+table.sim.dois td.num{width:150px}
+table.sim tr.cab td{border-bottom:2px solid var(--dark);padding-bottom:6px}
+table.sim select{padding:3px 7px;font-size:13px;border:1px solid var(--border);border-radius:5px}
+table.sim tr.sub-t td{border-top:1px solid var(--border);font-weight:500}
+table.sim tr.tot td{border-top:2px solid var(--dark);border-bottom:0;
+  padding-top:8px;font-weight:700;font-size:14px}
+table.sim tr.tot.grande td{font-size:17px;color:var(--green-dark)}
+table.sim tr.tot.bom td{color:var(--green-dark)}
+table.sim input{width:118px;text-align:right;padding:3px 7px;font-size:13px;
+  border:1px solid var(--border);border-radius:5px;
+  font-variant-numeric:tabular-nums}
+table.sim input:focus{outline:2px solid var(--green);outline-offset:-1px}
+.sim-nota{font-size:12px;color:var(--text-secondary);margin-top:12px;
+  padding-top:10px;border-top:1px solid var(--border-light)}
+.aj{display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;
+  border-radius:50%;background:var(--border);color:var(--text-muted);
+  font-size:10px;margin-left:5px;cursor:help}
+
+/* ---------- cartoes / avisos ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:12px;margin-bottom:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:13px 15px}
+.card .rot{font-size:11px;color:var(--text-muted);text-transform:uppercase;
+  letter-spacing:.4px}
+.card .val{font-size:20px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+.aviso{background:#FFF8E8;border:1px solid #F0DCAE;color:#7A5A12;border-radius:8px;
+  padding:11px 14px;margin-bottom:14px;font-size:13px}
+.aviso b{color:#5C440D}
+.vazio{padding:40px;text-align:center;color:var(--text-muted)}
+
+/* ---------- login ---------- */
+#login{position:fixed;inset:0;background:var(--dark);display:flex;
+  align-items:center;justify-content:center;z-index:100}
+#login .cx{background:var(--surface);padding:30px;border-radius:12px;width:330px}
+#login h2{margin:0 0 4px;font-size:17px}
+#login p{margin:0 0 18px;font-size:12.5px;color:var(--text-muted)}
+#login input{width:100%;margin-bottom:10px}
+#login .btn{width:100%}
+#login .erro{color:var(--red);font-size:12.5px;margin-top:10px;min-height:16px}
+
+/* ---------- modal ---------- */
+#modal{position:fixed;inset:0;background:rgba(25,30,37,.55);display:flex;
+  align-items:center;justify-content:center;z-index:90}
+#modal .cx{background:var(--surface);padding:22px;border-radius:12px;width:420px;
+  max-width:92vw}
+#modal h3{margin:0 0 3px;font-size:15px}
+#modal .sub{font-size:12px;color:var(--text-muted);margin-bottom:14px}
+#modal label{display:block;font-size:12px;color:var(--text-secondary);
+  margin:10px 0 4px}
+#modal input,#modal textarea{width:100%}
+#modal textarea{min-height:64px;resize:vertical}
+#modal .acoes{display:flex;gap:8px;margin-top:16px}
+#modal .acoes .btn{flex:1}
+#t-notas{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  overflow:hidden}
+#t-notas thead th{background:var(--dark);color:#fff;font-size:11px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.4px;padding:9px 12px;text-align:left}
+#t-notas th.num,#t-notas td.num{text-align:right}
+#t-notas tbody td{padding:8px 12px;border-bottom:1px solid var(--border-light);
+  vertical-align:top;font-variant-numeric:tabular-nums}
+#t-notas tbody tr:last-child td{border-bottom:0}
+#t-notas tbody tr:hover td{background:#FAFCFE}
+#t-notas tr.edicao td.forte{color:var(--blue);font-weight:600}
+#t-notas tr.nota td.num{color:var(--text-light)}
+#t-notas .dom{color:var(--text-light);font-size:11px}
+#t-notas .dif{display:block;font-size:11px;color:var(--green-dark);margin-top:2px}
+#t-notas .dif.neg{color:var(--red)}
+#t-notas td.com{color:var(--text-secondary);max-width:420px;white-space:normal}
+#t-notas tr.edicao td:first-child::before{content:"✎ ";color:var(--blue)}
+#t-notas tr.nota td:first-child::before{content:"● ";color:var(--amber)}
+#t-notas a{color:var(--text-muted);font-size:12px;text-decoration:none}
+#t-notas a:hover{color:var(--red)}
+.lista{background:var(--surface);border:1px solid var(--border);border-radius:10px}
+.lista .it{padding:12px 15px;border-bottom:1px solid var(--border-light)}
+.lista .it:last-child{border-bottom:0}
+.lista .cab{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.lista .assunto{font-weight:600;font-size:13px}
+.lista .meta{font-size:11.5px;color:var(--text-muted);margin-left:auto}
+.lista .txt{font-size:13px;color:var(--text-secondary);margin-top:5px;
+  white-space:pre-wrap}
+.tag{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11px;
+  background:var(--green-light);color:var(--green-dark);font-weight:500}
+.tag.fora{background:#FDEBE9;color:var(--red)}
+.tag.sem{background:#FFF3DC;color:var(--amber)}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="cx">
+    <h2>DRE Gerencial</h2>
+    <p>Cotraoeste Logística S.A.</p>
+    <input id="lg-email" type="email" placeholder="e-mail" autocomplete="username">
+    <input id="lg-senha" type="password" placeholder="senha" autocomplete="current-password">
+    <button class="btn" id="lg-entrar">Entrar</button>
+    <div class="erro" id="lg-erro"></div>
+  </div>
+</div>
+
+<header>
+  <img class="marca" src="data:image/png;base64,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" alt="Cotraoeste">
+  <h1>DRE Gerencial</h1>
+  <div class="dir">
+    <span id="quem"></span>
+    <button id="sair">sair</button>
+  </div>
+</header>
+
+<nav>
+  <button data-v="dre" class="on">Demonstrativo</button>
+  <button data-v="notas">Notas explicativas</button>
+  <button data-v="contas">Gerenciamento de contas</button>
+  <button data-v="fonte">Fonte de dados</button>
+  <button data-v="sim">Simulador</button>
+  <button data-v="atu">Atualizações</button>
+</nav>
+
+<main>
+  <section id="v-dre" class="view on">
+    <div class="cards" id="kpis"></div>
+    <div class="ctl">
+      <div class="cg"><span class="cl">Nível</span>
+        <button data-g="nivel" data-v="0">1</button>
+        <button data-g="nivel" data-v="1">2</button>
+        <button data-g="nivel" data-v="2" class="active">3</button>
+        <button data-g="nivel" data-v="3">4</button>
+      </div>
+      <div class="cs"></div>
+      <div class="cg"><span class="cl">Período</span>
+        <button data-g="periodo" data-t="Mês" class="active">Mês</button>
+        <button data-g="periodo" data-t="Trimestre">Trimestre</button>
+        <button data-g="periodo" data-t="Semestre">Semestre</button>
+        <button data-g="periodo" data-t="Ano">Ano</button>
+      </div>
+      <div class="cs"></div>
+      <div class="cg"><span class="cl">Média</span>
+        <button data-g="media" data-t="Nenhuma">Nenhuma</button>
+        <button data-g="media" data-t="Trimestral" class="active">Trimestral</button>
+        <button data-g="media" data-t="Semestral">Semestral</button>
+        <button data-g="media" data-t="Anual">Anual</button>
+      </div>
+      <div class="cs"></div>
+      <div class="cg"><span class="cl">Análise</span>
+        <button data-tog="av" class="active">AV</button>
+        <button data-tog="ah">AH</button>
+      </div>
+      <div class="cs"></div>
+      <div class="cg"><span class="cl">De</span>
+        <select id="f-de"></select><span style="color:var(--text-muted)">até</span>
+        <select id="f-ate"></select>
+      </div>
+      <div class="cs"></div>
+      <span id="dica" style="font-size:12px;color:var(--text-muted);padding-left:8px"></span>
+    </div>
+    <div class="quadro"><table id="t-dre"></table></div>
+  </section>
+
+  <section id="v-notas" class="view">
+    <div class="barra">
+      <button class="btn" id="nova-nota">✎ Escrever uma nota</button>
+    </div>
+    <div class="lista" id="l-notas"></div>
+  </section>
+
+  <section id="v-contas" class="view">
+    <div id="a-contas"></div>
+    <div class="barra">
+      <input type="text" id="f-conta" placeholder="filtrar conta..." style="min-width:260px">
+      <label><input type="checkbox" id="f-sem"> só as sem linha do DRE</label>
+    </div>
+    <div class="quadro" style="max-height:calc(100vh - 250px)">
+      <table id="t-contas"></table>
+    </div>
+  </section>
+
+  <section id="v-fonte" class="view">
+    <div id="c-fonte"></div>
+  </section>
+
+  <section id="v-sim" class="view">
+    <div id="c-sim"></div>
+  </section>
+
+  <section id="v-atu" class="view">
+    <div id="c-atu"></div>
+  </section>
+</main>
+
+<footer class="rodape">Powered by<br>
+  <img src="data:image/png;base64,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" alt="RecORP"></footer>
+
+<div id="modal" class="oculto"><div class="cx" id="modal-corpo"></div></div>
+
+<script>
+/* ===================== configuração ===================== */
+const CONFIG = {
+  URL     : "https://uoxtvygmeusdsxpgmvec.supabase.co",
+  KEY     : "sb_publishable_vIbht3Gk7lb3Njd6bniNww_q-N8fshM",
+  PROJETO : "cotraoeste",
+  NOME    : "Cotraoeste Logística S.A."
+};
+
+/* ===================== estado ===================== */
+const S = {
+  sessao:null, admin:false,
+  estrutura:[], fato:{}, edicoes:{}, notas:[], contas:[], carga:null,
+  meses:[], de:null, ate:null, colapsados:new Set(), abertos:new Set(),
+  nivel:2, periodo:'Mês', media:'Trimestral', av:1, ah:0
+};
+
+const fmt = n => (n===null||n===undefined||isNaN(n)) ? "" :
+  n.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const rotMes = m => { const [a,b]=m.split("-"); return b+"/"+a.slice(2); };
+
+/* ===================== Supabase por REST puro ===================== */
+async function sb(caminho, opc={}){
+  const tok = S.sessao?.access_token || CONFIG.KEY;
+  const r = await fetch(CONFIG.URL+"/rest/v1/"+caminho, {
+    ...opc,
+    headers:{ apikey:CONFIG.KEY, Authorization:"Bearer "+tok,
+              "Content-Type":"application/json", ...(opc.headers||{}) }
+  });
+  if(!r.ok) throw new Error(await r.text());
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+}
+
+async function entrar(email, senha){
+  const r = await fetch(CONFIG.URL+"/auth/v1/token?grant_type=password",{
+    method:"POST", headers:{apikey:CONFIG.KEY,"Content-Type":"application/json"},
+    body:JSON.stringify({email,password:senha})
+  });
+  const j = await r.json();
+  if(!r.ok) throw new Error(j.error_description || j.msg || "não foi possível entrar");
+  return j;
+}
+
+/* ===================== carga ===================== */
+async function carregar(){
+  const p = "projeto=eq."+CONFIG.PROJETO;
+  const [est, fat, edi, not, con, car] = await Promise.all([
+    sb("dre_estrutura?"+p+"&select=*&order=linha"),
+    sb("dre_fato?"+p+"&select=*"),
+    sb("dre_edicoes?"+p+"&select=*"),
+    sb("dre_notas?"+p+"&select=*&order=quando.desc"),
+    sb("dre_contas?"+p+"&select=*&order=conta"),
+    sb("dre_cargas?"+p+"&select=*&order=quando.desc&limit=1")
+  ]);
+  S.estrutura = est;
+  S.fato = {};
+  for(const f of fat){ (S.fato[f.mes] = S.fato[f.mes]||{})[f.chave] = +f.valor; }
+  S.edicoes = {};
+  for(const e of edi){ S.edicoes[e.linha+"|"+e.mes] = e; }
+  S.notas = not; S.contas = con; S.carga = car?.[0] || null;
+  S.meses = [...new Set(fat.map(f=>f.mes))].sort();
+  S.de = S.de || S.meses[0];
+  S.ate = S.ate || S.meses[S.meses.length-1];
+}
+
+/* ===================== motor de cálculo =====================
+   Resolve por dependência, não por ordem da planilha. As edições manuais
+   entram ANTES dos totais: senão o ajuste aparece na linha e não chega ao
+   EBITDA, que foi exatamente o bug do dre-gerencial anterior.            */
+function calcular(mes, ignorar){
+  const porLinha = {}; S.estrutura.forEach(i=>porLinha[i.linha]=i);
+  const fm = S.fato[mes] || {}, val = {}, andando = new Set();
+
+  function v(ln){
+    if(ln in val) return val[ln];
+    const it = porLinha[ln]; if(!it) return 0;
+    if(andando.has(ln)) return 0;
+    andando.add(ln);
+    let r = null;
+    const ed = (ln === ignorar) ? null : S.edicoes[ln+"|"+mes];
+    if(ed){ r = +ed.valor; }                       // edição manda em tudo
+    else {
+      const c = it.config || {};
+      if(it.tipo==="manual")      r = +(c.valor||0);
+      else if(it.tipo==="fonte" || it.tipo==="info"){   // 'info' soma igual,
+                                                        // so nao entra em total
+
+        r = (c.fontes||[]).reduce((s,f)=> s + f.sinal*(fm[f.chave]||0), 0);
+        r += (c.mais_linhas||[]).reduce((s,x)=> s + v(x), 0);
+      }
+      else if(it.tipo==="grupo")  r = (c.parcelas||[]).reduce((s,x)=> s + v(x), 0);
+      else if(it.tipo==="regra")  r = avaliar(c.expr, v);
+    }
+    andando.delete(ln);
+    val[ln] = r;
+    return r || 0;
+  }
+  S.estrutura.forEach(i=>v(i.linha));
+  return val;
+}
+
+function avaliar(expr, v){
+  if(!expr) return null;
+  let e = String(expr).replace(/^=/,"").replace(/\s/g,"");
+  if(/IFERROR|![A-Z]|#REF/.test(e)) return null;     // fórmula que não migrou
+  // SUM(C79,C81) -> (C79+C81) e SUM(C46:C56) -> (C46+C47+...). Trocar so o
+  // "SUM(" por "(" deixava uma lista, e em JS o operador virgula devolve
+  // apenas o ultimo termo -- FERIAS ADM. e DECIMO TERCEIRO saiam errados.
+  e = e.replace(/SUM\(([^()]*)\)/g, (m,dentro)=>{
+    const partes=[];
+    dentro.split(",").forEach(p=>{
+      const f=p.trim().match(/^C(\d+):C(\d+)$/);
+      if(f){ for(let i=+f[1]; i<=+f[2]; i++) partes.push("C"+i); }
+      else partes.push(p.trim());
+    });
+    return "("+partes.join("+")+")";
+  });
+  e = e.replace(/([\d.]+)%/g, (m,n)=>"("+(parseFloat(n)/100)+")");
+  e = e.replace(/[A-Z]{1,2}(\d+)/g, (m,n)=>"("+v(+n)+")");
+  if(/[^0-9.+\-*/() ]/.test(e)) return null;
+  try { return Function('"use strict";return ('+e+')')(); } catch(_){ return null; }
+}
+
+/* ===================== DRE ===================== */
+const TRI = {1:"1T",2:"2T",3:"3T",4:"4T"}, SEM = {1:"1S",2:"2S"};
+const FECHA = {Trimestral:3, Semestral:6, Anual:12};
+const LINHA_BASE = 4;           // AV é sobre a Receita Operacional Bruta (C$4)
+
+/* Os blocos cuja AH vale em PONTOS da receita, não em reais: variam junto com o
+   faturamento por natureza. Custo fixo e despesa administrativa ficam no
+   nominal — ali o valor não deveria acompanhar a receita, e crescer em reais já
+   é a notícia. */
+const BLOCOS_PP = ["DEDUÇÕES DA RECEITA BRUTA", "CUSTO VARIÁVEL"];
+
+function mesesVisiveis(){
+  const i = S.meses.indexOf(S.de), j = S.meses.indexOf(S.ate);
+  return S.meses.slice(Math.min(i,j), Math.max(i,j)+1);
+}
+const chaveGrupo = {
+  Trimestre: m => m.slice(0,4)+"-T"+(Math.floor((+m.slice(5,7)-1)/3)+1),
+  Semestre : m => m.slice(0,4)+"-S"+(+m.slice(5,7)<=6?1:2),
+  Ano      : m => m.slice(0,4),
+  // o grupo de Media usa os mesmos cortes, com os nomes do proprio grupo
+  Trimestral: m => m.slice(0,4)+"-T"+(Math.floor((+m.slice(5,7)-1)/3)+1),
+  Semestral : m => m.slice(0,4)+"-S"+(+m.slice(5,7)<=6?1:2),
+  Anual     : m => m.slice(0,4),
+};
+function rotGrupo(k){
+  if(k.includes("-T")) return TRI[+k.slice(-1)]+" "+k.slice(2,4);
+  if(k.includes("-S")) return SEM[+k.slice(-1)]+" "+k.slice(2,4);
+  return k;
+}
+
+/* A sequência de colunas. `periodo` é a granularidade do valor; `media`
+   acrescenta, depois do último período de cada grupo, a média MENSAL dele.
+   Grupo fechado leva o nome ("Média 1T 26"); o último, ainda aberto, leva o
+   número de meses — senão uma média de dois meses fica idêntica a uma de três
+   e a diferença só aparece quando alguém compara e não entende. */
+function montarColunas(ms){
+  const hoje = new Date();
+  const corrente = hoje.getFullYear()+"-"+String(hoje.getMonth()+1).padStart(2,"0");
+  let base;
+  if(S.periodo==="Mês"){
+    base = ms.map(m=>({tipo:"mes", meses:[m], rotulo:rotMes(m)}));
+  } else {
+    const g = {}; ms.forEach(m=>{ const k=chaveGrupo[S.periodo](m); (g[k]=g[k]||[]).push(m); });
+    base = Object.entries(g).map(([k,mm])=>({tipo:"agregado", meses:mm, rotulo:rotGrupo(k)}));
+  }
+  if(S.media==="Nenhuma" || !base.length) return base;
+
+  const kf = chaveGrupo[S.media];
+  if(typeof kf !== "function") return base;   // media desconhecida: sem coluna extra
+  const grupos = {};
+  ms.forEach(m=>{ const k=kf(m); (grupos[k]=grupos[k]||[]).push(m); });
+  const chaves = Object.keys(grupos).sort();
+  const ultimo = chaves[chaves.length-1];
+  const depois = {};
+  for(const k of chaves){
+    let iMax = -1;
+    base.forEach((c,i)=>{ if(c.meses.some(m=>grupos[k].includes(m))) iMax=i; });
+    if(iMax>=0) (depois[iMax]=depois[iMax]||[]).push(k);
+  }
+  const cols = [];
+  base.forEach((c,i)=>{
+    cols.push(c);
+    for(const k of (depois[i]||[])){
+      // a média só conta mês fechado: o corrente entra pela metade e puxa o
+      // número para baixo sem avisar ninguém.
+      const fechados = grupos[k].filter(m=>m < corrente);
+      if(!fechados.length) continue;
+      const completo = grupos[k].length===FECHA[S.media] && fechados.length===FECHA[S.media];
+      let rot;
+      if(completo) rot = "Média "+rotGrupo(k);
+      else if(k===ultimo) rot = "Média "+fechados.length+(fechados.length>1?" meses":" mês");
+      else continue;                       // grupo do meio incompleto não vira coluna
+      cols.push({tipo:"media", meses:fechados, rotulo:rot, forte:S.media==="Anual"});
+    }
+  });
+  return cols;
+}
+
+const PE = {
+  179: vc => { const mc = vc(4) ? vc(42)/vc(4) : 0;
+               return mc ? -(vc(44)+vc(63))/mc : null; },
+  180: vc => { const mc = vc(4) ? vc(42)/vc(4) : 0;
+               return mc ? -(vc(44)+vc(63)+vc(141)+vc(163)+vc(169))/mc : null; },
+  181: vc => { const p = vc(3) ? vc(6)/vc(3) : 0, b = PE[179](vc);
+               return (p && b!==null) ? b*0.95/p : null; },
+  182: vc => { const p = vc(3) ? vc(6)/vc(3) : 0, b = PE[180](vc);
+               return (p && b!==null) ? b*0.95/p : null; }
+};
+function valorColBase(calc, linha, col){
+  const vs = col.meses.map(m=>calc[m]?.[linha]).filter(v=>v!==null&&v!==undefined&&!isNaN(v));
+  if(!vs.length) return null;
+  if(col.tipo==="mes") return vs[0];
+  const s = vs.reduce((a,b)=>a+b,0);
+  return col.tipo==="media" ? s/vs.length : s;
+}
+function valorCol(calc, linha, col){
+  if(PE[linha]) return PE[linha](n=>valorColBase(calc,n,col) || 0);
+  return valorColBase(calc, linha, col);
+}
+function av(calc, linha, col){
+  const b = valorCol(calc, LINHA_BASE, col);
+  const v = valorCol(calc, linha, col);
+  return (b && v!==null) ? v/b : null;
+}
+
+/* A cor diz melhorou ou piorou, não mais ou menos. No nominal quem decide é o
+   sinal do valor: despesa vive negativa no DRE, então crescer aparece como +% e
+   tem que sair vermelho. Em pontos a conta já sai orientada. */
+function ah(calc, linha, cols, i, emPP){
+  const tipo = cols[i].tipo;
+  let ant = null;
+  for(let k=i-1;k>=0;k--) if(cols[k].tipo===tipo){ ant=cols[k]; break; }
+  if(!ant) return ["",""];
+  if(emPP){
+    const a = av(calc,linha,ant), b = av(calc,linha,cols[i]);
+    if(!a && !b) return ["",""];
+    const d = (b||0)-(a||0);
+    return [fmtPP(d), Math.abs(d)<0.00005 ? "" : (d>0?"sobe":"desce")];
+  }
+  const base = valorCol(calc,linha,ant), atual = valorCol(calc,linha,cols[i]);
+  if(base===null || atual===null || Math.abs(base)<0.5) return ["",""];
+  const h = atual/base - 1;
+  return [fmtVar(h), Math.abs(h)<0.00005 ? "" : ((h>0)===(base>0) ? "sobe":"desce")];
+}
+const fmtPct = v => v===null||isNaN(v) ? "" : (v*100).toFixed(1).replace(".",",")+"%";
+const fmtPP  = v => (Math.abs(v)<0.00005?"0,0":(v*100>=0?"+":"")+(v*100).toFixed(1))
+                    .replace(".",",")+"pp";
+function fmtVar(v){
+  if(v===null||isNaN(v)) return "";
+  if(Math.abs(v)>9.99) return v>0 ? "↑" : "↓";
+  if(Math.abs(v)<0.00005) return "0,0%";
+  return ((v*100>=0?"+":"")+(v*100).toFixed(1)).replace(".",",")+"%";
+}
+
+/* pais: de quem cada linha desce — por soma (parcelas) ou por detalhe (pai) */
+const ehResultado = it => /^\(=\)/.test(String(it?.rotulo||""));
+
+/* De quem cada linha desce. As linhas de resultado somam grupos que JA estao
+   na tela acima delas -- trata-las como pai fazia abrir a tabela inteira de
+   novo, em duplicata. Elas so tem os filhos pendurados por `pai` (o analitico
+   do Resultado Economico: CF e os pontos de equilibrio). */
+function mapaPais(){
+  const pais = {};
+  S.estrutura.forEach(it=>{
+    // Nem linha de resultado nem linha auxiliar (CF, pontos de equilibrio)
+    // adotam filhos pela soma: a CF soma C44+C63, que ja estao na tela, e
+    // recolher o Resultado Economico levava 91 linhas junto.
+    const auxiliar = it.config?.pai != null;
+    if(!ehResultado(it) && !auxiliar)
+      (it.config?.parcelas||[]).forEach(p=>{ if(pais[p]===undefined) pais[p]=it.linha; });
+    if(auxiliar) pais[it.linha] = it.config.pai;
+  });
+  return pais;
+}
+function linhasPP(pais){
+  const alvo = new Set(S.estrutura
+    .filter(i=>BLOCOS_PP.some(b=>String(i.rotulo||"").toUpperCase().includes(b)))
+    .map(i=>i.linha));
+  const out = new Set(alvo);
+  S.estrutura.forEach(i=>{
+    let p = pais[i.linha];
+    const visto = new Set();
+    while(p!=null && !visto.has(p)){ visto.add(p); if(alvo.has(p)){ out.add(i.linha); break; } p = pais[p]; }
+  });
+  return out;
+}
+
+function renderDre(){
+  const ms = mesesVisiveis();
+  const calc = {}; ms.forEach(m=>calc[m]=calcular(m));
+  const cols = montarColunas(ms);
+  const pais = mapaPais(), pp = linhasPP(pais);
+  const nivelMax = S.nivel;
+
+  // As linhas de detalhe vivem numa faixa própria (2000+) e viriam todas no fim
+  // se ordenadas por número. Cada uma volta para baixo do seu pai.
+  const filhos = {};
+  S.estrutura.forEach(i=>{ const p=i.config?.pai; if(p!=null) (filhos[p]=filhos[p]||[]).push(i); });
+  const ordenada = [];
+  S.estrutura.forEach(i=>{
+    if(i.config?.pai!=null) return;
+    ordenada.push(i);
+    (filhos[i.linha]||[]).forEach(f=>ordenada.push(f));
+  });
+
+  const notasPor = {};
+  S.notas.forEach(n=>{ if(n.linha) (notasPor[n.linha+"|"+n.mes]=notasPor[n.linha+"|"+n.mes]||[]).push(n); });
+
+  // Um ancestral aberto na mão vence o nível global: dá para abrir uma conta
+  // sem ter de destravar a tabela inteira.
+  const abertoAcima = ln => {
+    let p = pais[ln]; const visto = new Set();
+    while(p!=null && !visto.has(p)){ visto.add(p); if(S.abertos.has(p)) return true; p = pais[p]; }
+    return false;
+  };
+  const recolhidoAcima = ln => {
+    let p = pais[ln]; const visto = new Set();
+    while(p!=null && !visto.has(p)){ visto.add(p); if(S.colapsados.has(p)) return true; p = pais[p]; }
+    return false;
+  };
+
+  const nCol = cols.length * (1 + (S.av?1:0) + (S.ah?1:0));
+  let h = "<thead><tr><th rowspan='3'>Conta"
+          + "<div class='reg-rot'>Litros vendidos</div></th>";
+  cols.forEach(c=>{
+    const n = 1 + (S.av?1:0) + (S.ah?1:0);
+    h += "<th colspan='"+n+"' class='ini"+(c.tipo==="media"?" mediaCol":"")+"'>"+c.rotulo+"</th>";
+  });
+  h += "</tr><tr>";
+  cols.forEach(c=>{
+    const cl = c.tipo==="media" ? " sub mediaCol" : " sub";
+    h += "<th class='"+cl+" ini'>R$</th>";
+    if(S.av) h += "<th class='"+cl+"'>AV</th>";
+    if(S.ah) h += "<th class='"+cl+"'>AH</th>";
+  });
+  h += "</tr>";
+  const nSub = 1 + (S.av?1:0) + (S.ah?1:0);
+  let litros = "<tr class='regua'>";
+  cols.forEach(c=>{
+    const v = valorCol(calc, 3, c);
+    litros += "<th colspan='"+nSub+"' class='ini"+(c.tipo==="media"?" mediaCol":"")+"'>"+
+              (v ? fmt(v) : "—")+"</th>";
+  });
+  h += litros + "</tr></thead><tbody>";
+
+  for(const it of ordenada){
+    if(it.oculta && !it.rotulo){ h += '<tr class="vazia"><td colspan="'+(nCol+1)+'"></td></tr>'; continue; }
+    if(recolhidoAcima(it.linha)) continue;
+    const niv = it.nivel||0;
+    if(niv > nivelMax && !abertoAcima(it.linha)) continue;
+    if(it.tipo==="info" && cols.every(c=>!valorCol(calc,it.linha,c))) continue;
+
+    const rot = String(it.rotulo||"");
+    const total = /^\(=\)/.test(rot), grupo = /^\([+\-]\)/.test(rot);
+    let cls = total ? "kpi" : (niv===0 && grupo ? "n0" : (niv<=1 && it.tipo==="grupo" ? "n1" : ""));
+    if(it.tipo==="info") cls = "det";
+    if(it.linha === LINHA_BASE) cls += " fixa";   // a ROB acompanha a rolagem
+
+    const soAnalitico = (filhos[it.linha]||[]).map(f=>f.linha);
+    const meusFilhos = ehResultado(it) ? soAnalitico
+                     : [...(it.config?.parcelas||[]), ...soAnalitico];
+    const temEscondido = meusFilhos.some(f=>{
+      const fi = S.estrutura.find(x=>x.linha===f);
+      return fi && (fi.nivel||0) > nivelMax;
+    });
+    let caret = '<span class="caret"></span>';
+    if(meusFilhos.length){
+      const fechado = S.colapsados.has(it.linha) ||
+                      (temEscondido && !S.abertos.has(it.linha));
+      caret = '<span class="caret'+(temEscondido&&!S.abertos.has(it.linha)?" mais":"")+
+              '" data-ln="'+it.linha+'">'+(fechado?"▸":"▾")+'</span>';
+    }
+    const aj = it.config?.ajuda ? ' title="'+it.config.ajuda.replace(/"/g,"&quot;")+'"' : '';
+    h += '<tr class="'+cls+'"><td style="padding-left:'+(10+niv*15)+'px"'+aj+'>'+caret+
+         '<span class="rot">'+rot+'</span></td>';
+
+    cols.forEach((c,ci)=>{
+      const v = valorCol(calc, it.linha, c);
+      const ed = c.tipo==="mes" ? S.edicoes[it.linha+"|"+c.meses[0]] : null;
+      const nt = c.tipo==="mes" ? notasPor[it.linha+"|"+c.meses[0]] : null;
+      const cm = c.tipo==="media" ? " mediaCol" : "";
+      let td = '<td class="ini '+(ed?"man ":"")+(S.admin&&c.tipo==="mes"?"edit ":"")+
+               (v<0?"neg":"")+cm+'"';
+      if(c.tipo==="mes") td += ' data-ln="'+it.linha+'" data-mes="'+c.meses[0]+'"';
+      if(ed) td += ' title="'+(ed.motivo||"editado").replace(/"/g,"&quot;")+' — '+(ed.autor||"?")+'"';
+      td += '>'+fmt(v)+(nt?'<span class="temnota" title="'+
+            nt.map(x=>x.texto.replace(/"/g,"&quot;")).join(" | ")+'">●</span>':'')+'</td>';
+      h += td;
+      if(S.av) h += '<td class="col-av'+cm+'">'+(v===null||Math.abs(v)<0.5?"":fmtPct(av(calc,it.linha,c)))+'</td>';
+      if(S.ah){
+        const [t,cor] = ah(calc, it.linha, cols, ci, pp.has(it.linha));
+        h += '<td class="col-ah '+cor+cm+'">'+t+'</td>';
+      }
+    });
+    h += '</tr>';
+  }
+  document.getElementById("t-dre").innerHTML = h + "</tbody>";
+  // As alturas reais so existem depois de montar; sem isso as tres linhas do
+  // cabecalho congelavam todas em top:0 e uma cobria a outra.
+  // Duas passadas: a celula "Conta" tem rowspan 3 e pode esticar as linhas do
+  // cabecalho, entao a altura so e confiavel depois que o layout assenta. Medir
+  // cedo deixava uma faixa onde as linhas do corpo apareciam por tras da ROB.
+  const medir = ()=>{
+    const t = document.getElementById("t-dre"); if(!t?.tHead) return;
+    const alt = i => t.tHead.rows[i] ? t.tHead.rows[i].getBoundingClientRect().height : 0;
+    const h1 = alt(0), h2 = alt(1), st = t.style;
+    st.setProperty("--t1","0px");
+    st.setProperty("--t2", Math.round(h1)+"px");
+    st.setProperty("--t3", Math.round(h1+h2)+"px");
+    // a ROB encosta no fim do cabecalho inteiro, nao na soma das partes
+    st.setProperty("--t4", Math.round(t.tHead.getBoundingClientRect().height)+"px");
+  };
+  requestAnimationFrame(()=>{ medir(); requestAnimationFrame(medir); });
+
+  document.querySelectorAll(".caret[data-ln]").forEach(c=>c.onclick=e=>{
+    const ln = +e.target.dataset.ln;
+    if(e.target.classList.contains("mais")){ S.abertos.add(ln); S.colapsados.delete(ln); }
+    else if(S.colapsados.has(ln)){ S.colapsados.delete(ln); }
+    else { S.colapsados.add(ln); S.abertos.delete(ln); }
+    renderDre();
+  });
+  if(S.admin) document.querySelectorAll("td.edit").forEach(td=>td.ondblclick=()=>
+    abrirEdicao(+td.dataset.ln, td.dataset.mes));
+
+  document.getElementById("dica").textContent = S.admin
+    ? "duplo clique numa célula para editar · ▸ abre a linha sozinha" : "somente leitura";
+  renderKpis(calc, ms);
+}
+
+function renderKpis(calc, ms){
+  const achar = re => S.estrutura.find(i=>re.test(String(i.rotulo||"")));
+  const alvos = [
+    ["Receita líquida", achar(/^\(=\) RECEITA OPERACIONAL L/)],
+    ["Resultado oper.", achar(/^\(=\) RESULTADO OPERACIONAL/)],
+    ["EBITDA",          achar(/^\(=\) EBITDA/)],
+    ["Resultado econ.", achar(/^\(=\) RESULTADO ECON/)]
+  ];
+  document.getElementById("kpis").innerHTML = alvos.map(([rot,it])=>{
+    if(!it) return "";
+    let s=0,n=0; ms.forEach(m=>{const v=calc[m][it.linha]; if(v||v===0){s+=v;n++;}});
+    return '<div class="card"><div class="rot">'+rot+'</div><div class="val'+
+      (s<0?" neg":"")+'">'+fmt(s)+'</div></div>';
+  }).join("");
+}
+
+/* ===================== edição manual ===================== */
+function abrirEdicao(linha, mes){
+  const it = S.estrutura.find(i=>i.linha===linha);
+  const ed = S.edicoes[linha+"|"+mes];
+  const calculado = calcular(mes)[linha];
+  modal(`
+    <h3>${it.rotulo||"linha "+linha}</h3>
+    <div class="sub">${rotMes(mes)} · de <b>${fmt(valorAntes(linha,mes))}</b>
+      para o valor abaixo — vai para o registro com seu nome</div>
+    <label>Valor</label>
+    <input type="text" id="e-valor" value="${ed?ed.valor:(calculado??"")}">
+    <label>Por quê? <span style="color:var(--text-muted)">— fica registrado com seu nome</span></label>
+    <textarea id="e-motivo" placeholder="ex.: aluguel ainda não lançado; usei a média dos três meses anteriores">${ed?.motivo||""}</textarea>
+    <div class="acoes">
+      <button class="btn" id="e-salvar">Salvar</button>
+      ${ed?'<button class="btn sec" id="e-tirar">Remover edição</button>':''}
+      <button class="btn sec" id="e-cancelar">Cancelar</button>
+    </div>`);
+  document.getElementById("e-cancelar").onclick = fecharModal;
+  document.getElementById("e-salvar").onclick = async ()=>{
+    const v = parseFloat(String(document.getElementById("e-valor").value)
+                .replace(/\./g,"").replace(",","."));
+    if(isNaN(v)) return alert("valor inválido");
+    const motivo = document.getElementById("e-motivo").value.trim();
+    if(!motivo) return alert("escreva o motivo — um número sem explicação não se defende numa reunião");
+    await sb("dre_edicoes?on_conflict=projeto,linha,mes",{method:"POST",
+      headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
+      body:JSON.stringify([{projeto:CONFIG.PROJETO,linha,mes,valor:v,motivo,
+                            autor:S.sessao.user.email}])});
+    await carregar(); fecharModal(); renderDre();
+  };
+  if(ed) document.getElementById("e-tirar").onclick = async ()=>{
+    await sb(`dre_edicoes?projeto=eq.${CONFIG.PROJETO}&linha=eq.${linha}&mes=eq.${mes}`,
+             {method:"DELETE",headers:{Prefer:"return=minimal"}});
+    await carregar(); fecharModal(); renderDre();
+  };
+}
+
+/* ===================== notas =====================
+   Uma tabela so, com tudo que interferiu no DRE: as EDICOES (que mudaram
+   numero, com De/Para) e as NOTAS (que so explicam). Separadas em duas telas,
+   quem abria "notas" nao via os ajustes que de fato moveram o resultado --
+   justamente os que precisam de explicacao.                               */
+function valorAntes(linha, mes){          // o que a linha diria sem a edicao
+  return calcular(mes, linha)[linha];
+}
+
+function linhasDoRegistro(){
+  const rot = {}; S.estrutura.forEach(i=>rot[i.linha]=i.rotulo);
+  const itens = [];
+  for(const k in S.edicoes){
+    const e = S.edicoes[k];
+    itens.push({tipo:"edicao", id:e.linha+"|"+e.mes, autor:e.autor, mes:e.mes,
+                de:valorAntes(e.linha, e.mes), para:+e.valor,
+                linha:e.linha, conta:rot[e.linha]||("linha "+e.linha),
+                texto:e.motivo||"", quando:e.quando});
+  }
+  for(const n of S.notas){
+    itens.push({tipo:"nota", id:n.id, autor:n.autor, mes:n.mes,
+                de:null, para:null, linha:n.linha,
+                conta:n.linha?(rot[n.linha]||("linha "+n.linha)):null,
+                texto:n.texto, quando:n.quando});
+  }
+  return itens.sort((a,b)=> new Date(b.quando||0) - new Date(a.quando||0));
+}
+
+function renderNotas(){
+  document.getElementById("nova-nota").classList.toggle("oculto", !S.admin);
+  const itens = linhasDoRegistro();
+  const el = document.getElementById("l-notas");
+  if(!itens.length){
+    el.innerHTML = '<div class="vazio">Nenhum ajuste ou nota ainda.</div>';
+    return;
+  }
+  let h = `<table id="t-notas"><thead><tr>
+    <th>Usuário</th><th>Mês</th><th class="num">De</th><th class="num">Para</th>
+    <th>Plano de contas</th><th>Comentário</th>${S.admin?"<th></th>":""}
+    </tr></thead><tbody>`;
+  for(const it of itens){
+    const dif = (it.de!=null && it.para!=null) ? it.para-it.de : null;
+    h += `<tr class="${it.tipo}">
+      <td>${(it.autor||"—").replace(/@.*/,"")}<span class="dom">${
+            (it.autor||"").includes("@")?"@"+it.autor.split("@")[1]:""}</span></td>
+      <td>${it.mes?rotMes(it.mes):"—"}</td>
+      <td class="num ${it.de<0?"neg":""}">${it.de!=null?fmt(it.de):""}</td>
+      <td class="num forte ${it.para<0?"neg":""}">${it.para!=null?fmt(it.para):""}</td>
+      <td>${it.conta||"—"}${dif!=null?`<span class="dif ${dif<0?"neg":""}">${
+            dif>0?"+":""}${fmt(dif)}</span>`:""}</td>
+      <td class="com">${it.texto||""}</td>
+      ${S.admin?`<td class="num"><a href="#" data-tipo="${it.tipo}" data-id="${
+            it.id}">remover</a></td>`:""}</tr>`;
+  }
+  el.innerHTML = h + "</tbody></table>";
+
+  el.querySelectorAll("a[data-id]").forEach(a=>a.onclick=async e=>{
+    e.preventDefault();
+    if(a.dataset.tipo==="nota"){
+      await sb("dre_notas?id=eq."+a.dataset.id,
+               {method:"DELETE",headers:{Prefer:"return=minimal"}});
+    }else{
+      const [ln,mes] = a.dataset.id.split("|");
+      if(!confirm("Remover o ajuste devolve a linha ao valor calculado. Confirma?")) return;
+      await sb(`dre_edicoes?projeto=eq.${CONFIG.PROJETO}&linha=eq.${ln}&mes=eq.${mes}`,
+               {method:"DELETE",headers:{Prefer:"return=minimal"}});
+    }
+    await carregar(); renderNotas();
+  });
+}
+
+/* Nota "normal": De/Para ficam vazios de proposito -- ela nao muda numero.
+   Mes e plano de contas sao opcionais; o comentario nao. */
+function novaNota(){
+  const ops = S.estrutura.filter(i=>i.rotulo && i.tipo!=="info")
+    .map(i=>`<option value="${i.linha}">${i.rotulo}</option>`).join("");
+  modal(`
+    <h3>Escrever uma nota</h3>
+    <div class="sub">Não altera nenhum valor — explica. Para mudar um número,
+      edite a célula no demonstrativo.</div>
+    <label>Mês <span style="color:var(--text-muted)">— opcional</span></label>
+    <select id="n-mes" style="width:100%"><option value="">— todos —</option>
+      ${S.meses.map(m=>`<option value="${m}">${rotMes(m)}</option>`).join("")}</select>
+    <label>Plano de contas <span style="color:var(--text-muted)">— opcional</span></label>
+    <select id="n-linha" style="width:100%"><option value="">— nenhum —</option>${ops}</select>
+    <label>Comentário</label><textarea id="n-texto"></textarea>
+    <div class="acoes">
+      <button class="btn" id="n-salvar">Salvar</button>
+      <button class="btn sec" id="n-cancelar">Cancelar</button>
+    </div>`);
+  document.getElementById("n-cancelar").onclick = fecharModal;
+  document.getElementById("n-salvar").onclick = async ()=>{
+    const t = document.getElementById("n-texto").value.trim();
+    if(!t) return alert("o comentário é obrigatório");
+    const ln = document.getElementById("n-linha").value;
+    const rot = S.estrutura.find(i=>i.linha==ln)?.rotulo;
+    await sb("dre_notas",{method:"POST",headers:{Prefer:"return=minimal"},
+      body:JSON.stringify([{projeto:CONFIG.PROJETO, assunto:rot||"Observação",
+        mes:document.getElementById("n-mes").value||null,
+        linha:ln||null, texto:t, autor:S.sessao.user.email}])});
+    await carregar(); fecharModal(); renderNotas();
+  };
+}
+
+/* ===================== contas ===================== */
+function renderContas(){
+  const rot = {}; S.estrutura.forEach(i=>rot[i.linha]=i.rotulo);
+  const sem = S.contas.filter(c=>!c.linha && !c.fora);
+  document.getElementById("a-contas").innerHTML = sem.length
+    ? `<div class="aviso"><b>${sem.length} contas sem linha no DRE.</b>
+       Enquanto estiverem assim, o que cai nelas não aparece no relatório.
+       Algumas podem ser intencionais — marque como “fora do DRE” com o motivo,
+       para a próxima pessoa não precisar adivinhar.</div>` : "";
+  const filtro = document.getElementById("f-conta").value.toLowerCase();
+  const soSem = document.getElementById("f-sem").checked;
+  const linhas = S.contas.filter(c=>
+    (!filtro || c.conta.toLowerCase().includes(filtro)) && (!soSem || (!c.linha && !c.fora)));
+  const ops = S.estrutura.filter(i=>i.rotulo && i.tipo!=="grupo")
+    .map(i=>`<option value="${i.linha}">${i.rotulo}</option>`).join("");
+  let h = "<thead><tr><th>Conta</th><th style='text-align:left'>Linha do DRE</th>"+
+          "<th style='text-align:left'>Situação</th></tr></thead><tbody>";
+  for(const c of linhas){
+    h += `<tr><td>${c.conta}</td>
+      <td style="text-align:left">${S.admin
+        ? `<select data-conta="${c.conta}" style="max-width:290px">
+             <option value="">— sem linha —</option>${ops}</select>`
+        : (rot[c.linha]||"—")}</td>
+      <td style="text-align:left">${c.fora
+        ? '<span class="tag fora">fora do DRE</span> '+(c.motivo||"")
+        : (c.linha ? '<span class="tag">classificada</span>'
+                   : '<span class="tag sem">sem linha</span>')}</td></tr>`;
+  }
+  document.getElementById("t-contas").innerHTML = h+"</tbody>";
+  document.querySelectorAll("#t-contas select[data-conta]").forEach(s=>{
+    const c = S.contas.find(x=>x.conta===s.dataset.conta);
+    s.value = c.linha || "";
+    s.onchange = async ()=>{
+      await sb("dre_contas?on_conflict=projeto,conta",{method:"POST",
+        headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
+        body:JSON.stringify([{projeto:CONFIG.PROJETO, conta:c.conta,
+          linha:s.value?+s.value:null, fora:false, autor:S.sessao.user.email}])});
+      await carregar(); renderContas();
+    };
+  });
+}
+
+/* ===================== fonte de dados ===================== */
+function renderFonte(){
+  const c = S.carga;
+  const nCta = S.contas.length, nSem = S.contas.filter(x=>!x.linha&&!x.fora).length;
+  const nFato = Object.values(S.fato).reduce((s,o)=>s+Object.keys(o).length,0);
+  document.getElementById("c-fonte").innerHTML = `
+    <div class="cards">
+      <div class="card"><div class="rot">Última carga</div><div class="val" style="font-size:15px">
+        ${c?new Date(c.quando).toLocaleString("pt-BR"):"—"}</div></div>
+      <div class="card"><div class="rot">Período</div><div class="val" style="font-size:15px">
+        ${c?rotMes(c.periodo_ini)+" a "+rotMes(c.periodo_fim):"—"}</div></div>
+      <div class="card"><div class="rot">Linhas agregadas</div><div class="val">${nFato}</div></div>
+      <div class="card"><div class="rot">Contas</div><div class="val">${nCta}
+        <span style="font-size:12px;color:var(--amber)">${nSem?"· "+nSem+" sem linha":""}</span></div></div>
+      <div class="card"><div class="rot">Edições manuais</div><div class="val">
+        ${Object.keys(S.edicoes).length}</div></div>
+    </div>
+    <div class="aviso">
+      O DRE não carrega a base bruta: as 234 mil linhas de venda e lançamento são
+      agregadas no Python por (mês × chave) e só o resultado sobe — cerca de
+      <b>760 linhas</b>. É por isso que a tela abre instantânea.
+      Para atualizar: rodar <code>montar_fato.py</code> e <code>publicar.py</code>.
+    </div>`;
+}
+
+/* ===================== simulador de combustível =====================
+   Diesel e gasolina sao 94% do faturamento (media de 9 meses, desvio 0,74%).
+   Eles entram linha a linha, montados de baixo para cima. O resto -- etanol,
+   arla, lubrificantes, conveniencia -- entra pela proporcao historica: se os
+   dois sempre valeram X% do faturamento, o total e o deles dividido por X%, e
+   a diferenca traz a margem dos demais na taxa que eles costumam dar.
+
+   Isso importa na simulacao: quando o volume de combustivel sobe, a loja sobe
+   junto. Tratar o resto como valor fixo subestimaria o ganho.              */
+
+const SIM = { mes:null, campos:{}, alvo:"dsl", litros:null, cmv:null };
+const PROD = { dsl:"Diesel", gas:"Gasolina" };
+
+function mesCorrente(){
+  const h = new Date();
+  return h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0");
+}
+const mesAberto = m => m >= mesCorrente();
+function mesesFechados(){ return S.meses.slice(); }
+
+/* Numeros do mes, por litro de cada produto. Preco, desconto e CMV sao do
+   proprio produto; imposto, cartao, deslocamento e comissao servem a todos os
+   combustiveis, entao rateiam pelo litro de combustivel do mes.            */
+function baseDoMes(mes){
+  const f = S.fato[mes] || {}, c = calcular(mes);
+  const qC = f["vnd:qtd_comb"] || 0;
+  if(!qC) return null;
+  const abs = n => Math.abs(c[n] || 0);
+  const rateio = { imposto: abs(12)/qC, cartao: abs(20)/qC,
+                   desloc: abs(31)/qC, comissao: abs(37)/qC };
+  const out = { litrosComb:qC, rateio, prod:{},
+                fatTotal: f["vnd:bruto_total"] || 0 };
+  for(const p in PROD){
+    const q = f[p+":qtd"] || 0;
+    if(!q) return null;
+    out.prod[p] = { litros:q, preco:(f[p+":bruto"]||0)/q,
+                    desconto:(f[p+":desconto"]||0)/q, cmv:(f[p+":custo"]||0)/q,
+                    ...rateio };
+  }
+  out.fatDG = (f["dsl:bruto"]||0) + (f["gas:bruto"]||0);
+  out.pctDG = out.fatTotal ? out.fatDG/out.fatTotal : 0;
+  out.mcTotal = c[42] || 0;
+  return out;
+}
+
+const margemLitro = k => k.preco - k.desconto - k.imposto - k.cartao
+                       - k.cmv - k.desloc - k.comissao;
+
+const fixoDoMes = mes => {
+  const c = calcular(mes);
+  return Math.abs(c[44] || 0) + Math.abs(c[63] || 0);
+};
+function fixoMedio(mes, n = 3){
+  const fech = S.meses.filter(m => !mesAberto(m));
+  const i = fech.indexOf(mes);
+  const janela = (i < 0 ? fech : fech.slice(0, i + 1)).slice(-n);
+  if(!janela.length) return {valor:0, meses:[]};
+  return {valor: janela.reduce((s,m)=> s + fixoDoMes(m), 0)/janela.length, meses:janela};
+}
+
+const num = v => (v===null||v===undefined||isNaN(v)) ? "" :
+  v.toLocaleString("pt-BR",{minimumFractionDigits:4,maximumFractionDigits:4});
+const int = v => (v===null||isNaN(v)) ? "" :
+  Math.round(v).toLocaleString("pt-BR");
+
+function renderSim(){
+  const meses = mesesFechados();
+  const el = document.getElementById("c-sim");
+  if(!meses.length){ el.innerHTML='<div class="vazio">Sem meses na base.</div>'; return; }
+  SIM.mes = SIM.mes && meses.includes(SIM.mes) ? SIM.mes : meses[meses.length-1];
+  const b = baseDoMes(SIM.mes);
+  if(!b){ el.innerHTML='<div class="vazio">Sem venda de combustível neste mês.</div>'; return; }
+
+  if(SIM.campos._mes !== SIM.mes){
+    SIM.campos = {_mes:SIM.mes};
+    for(const p in PROD) SIM.campos[p] = {...b.prod[p]};
+    SIM.litros = null; SIM.cmv = null;
+  }
+  const K = SIM.campos, fx = fixoMedio(SIM.mes);
+
+  /* --- taxa de margem dos demais, do historico --- */
+  const mcHistDG = Object.keys(PROD)
+        .reduce((s,p)=> s + margemLitro(b.prod[p])*b.prod[p].litros, 0);
+  const fatDemaisHist = b.fatTotal - b.fatDG;
+  const mcDemaisHist  = b.mcTotal - mcHistDG;
+  const taxaDemais = fatDemaisHist ? mcDemaisHist/fatDemaisHist : 0;
+
+  /* --- situacao simulada --- */
+  let fatDG = 0, mcDG = 0;
+  const porProd = {};
+  for(const p in PROD){
+    const m = margemLitro(K[p]);
+    porProd[p] = {mc:m, litros:K[p].litros, fat:K[p].preco*K[p].litros,
+                  mcTotal:m*K[p].litros};
+    fatDG += porProd[p].fat; mcDG += porProd[p].mcTotal;
+  }
+  const fatTotalSim = b.pctDG ? fatDG/b.pctDG : 0;
+  const fatDemais   = fatTotalSim - fatDG;
+  const mcDemais    = fatDemais * taxaDemais;
+  const mcTudo      = mcDG + mcDemais;
+  const resultado   = mcTudo - fx.valor;
+  const fator       = mcTudo > 0 ? fx.valor/mcTudo : null;   // escala p/ empatar
+
+  const linhaProd = (rot, chave, sinal, ajuda) => `
+    <tr><td>${sinal||""} ${rot}${ajuda?`<span class="aj" title="${ajuda}">?</span>`:""}</td>
+      ${Object.keys(PROD).map(p=>`<td class="num"><input type="text"
+         data-p="${p}" data-k="${chave}" value="${num(K[p][chave])}"></td>`).join("")}</tr>`;
+
+  el.innerHTML = `
+    <div class="barra">
+      <label>Mês base <select id="s-mes">${meses.map(m=>
+        `<option value="${m}" ${m===SIM.mes?"selected":""}>${rotMes(m)}</option>`).join("")}</select></label>
+      <span style="font-size:12px;color:var(--text-muted)">
+        diesel + gasolina = ${(b.pctDG*100).toFixed(1)}% do faturamento deste mês</span>
+      <button class="btn sec" id="s-reset">voltar ao histórico</button>
+    </div>
+
+    <div class="sim-grid">
+      <div class="sim-cx" style="grid-column:span 2">
+        <h3>Composição por litro</h3>
+        <div class="sub">vem do mês escolhido — mude qualquer número para simular</div>
+        <table class="sim dois">
+          <tr class="cab"><td></td>${Object.values(PROD).map(n=>
+            `<td class="num"><b>${n}</b></td>`).join("")}</tr>
+          <tr><td>Litros vendidos</td>${Object.keys(PROD).map(p=>
+            `<td class="num"><input type="text" data-p="${p}" data-k="litros"
+               value="${int(K[p].litros)}"></td>`).join("")}</tr>
+          ${linhaProd("Preço de venda bruto","preco","")}
+          ${linhaProd("Desconto","desconto","(−)")}
+          ${linhaProd("Impostos sobre faturamento","imposto","(−)","linha 12 do DRE rateada pelos litros de combustível")}
+          ${linhaProd("Taxa de cartão","cartao","(−)","linha 20 do DRE rateada")}
+          ${linhaProd("CMV (preço de compra)","cmv","(−)")}
+          ${linhaProd("Desloc. de produtos","desloc","(−)","linha 31 rateada")}
+          ${linhaProd("Comissões e incentivos","comissao","(−)","linha 37 rateada")}
+          <tr class="tot"><td>(=) Margem por litro</td>${Object.keys(PROD).map(p=>
+            `<td class="num">${num(porProd[p].mc)}</td>`).join("")}</tr>
+          <tr class="sub-t"><td>Margem do mês</td>${Object.keys(PROD).map(p=>
+            `<td class="num">${fmt(porProd[p].mcTotal)}</td>`).join("")}</tr>
+        </table>
+      </div>
+
+      <div class="sim-cx">
+        <h3>Resultado do mês</h3>
+        <div class="sub">custo fixo médio de ${fx.meses.map(rotMes).join(", ")}</div>
+        <table class="sim">
+          <tr><td>Margem diesel + gasolina</td><td class="num">${fmt(mcDG)}</td></tr>
+          <tr><td>Faturamento dos dois</td><td class="num">${fmt(fatDG)}</td></tr>
+          <tr><td>÷ ${(b.pctDG*100).toFixed(1)}% = faturamento total
+              <span class="aj" title="proporção histórica deste mês: se os dois sempre valem essa fatia, o total sai por regra de três">?</span></td>
+              <td class="num">${fmt(fatTotalSim)}</td></tr>
+          <tr><td>Faturamento dos demais</td><td class="num">${fmt(fatDemais)}</td></tr>
+          <tr><td>× margem de ${(taxaDemais*100).toFixed(1)}%
+              <span class="aj" title="margem que etanol, arla, lubrificantes e conveniência deram neste mês">?</span></td>
+              <td class="num">${fmt(mcDemais)}</td></tr>
+          <tr class="sub-t"><td>(=) Margem total</td><td class="num"><b>${fmt(mcTudo)}</b></td></tr>
+          <tr><td>(−) Custo + despesa fixa</td><td class="num">${fmt(fx.valor)}</td></tr>
+          <tr class="tot ${resultado>=0?"bom":""}"><td>(=) Resultado</td>
+              <td class="num">${fmt(resultado)}</td></tr>
+        </table>
+      </div>
+
+      <div class="sim-cx">
+        <h3>Quanto falta vender</h3>
+        <div class="sub">mantendo a mistura atual entre os dois</div>
+        <table class="sim">
+          ${Object.keys(PROD).map(p=>`
+          <tr><td>${PROD[p]} — vendido</td><td class="num">${int(K[p].litros)} L</td></tr>
+          <tr><td>${PROD[p]} — para empatar</td>
+              <td class="num"><b>${fator!==null?int(K[p].litros*fator):"—"} L</b></td></tr>`).join("")}
+          <tr class="tot ${fator!==null&&fator<=1?"bom":""}">
+            <td>${fator!==null&&fator<=1?"Sobra sobre o equilíbrio":"Faltam vender"}</td>
+            <td class="num">${fator!==null
+              ? int(Math.abs(Object.keys(PROD).reduce((s,p)=>s+K[p].litros*(fator-1),0)))+" L"
+              : "—"}</td></tr>
+        </table>
+        ${mcTudo<=0?'<div class="aviso" style="margin-top:12px">Margem total negativa: não existe ponto de equilíbrio — vender mais aumenta o prejuízo.</div>':""}
+        ${mesAberto(SIM.mes)?`<div class="sim-nota" style="color:var(--amber)">
+          <b>${rotMes(SIM.mes)} ainda está em curso.</b> Litros e margem são
+          parciais, mas o custo fixo é de um mês inteiro — isto responde quanto
+          ainda falta vender até fechar o mês.</div>`:""}
+      </div>
+
+      <div class="sim-cx destaque" style="grid-column:span 2">
+        <h3>Caminho inverso</h3>
+        <div class="sub">tenho este custo e quero vender esta litragem — a que preço?</div>
+        <table class="sim">
+          <tr><td>Produto</td><td class="num">
+            <select id="s-alvo">${Object.keys(PROD).map(p=>
+              `<option value="${p}" ${p===SIM.alvo?"selected":""}>${PROD[p]}</option>`).join("")}</select>
+          </td></tr>
+          <tr><td>Preço de compra (CMV/L)</td><td class="num">
+            <input type="text" id="s-cmv" value="${num(SIM.cmv!==null?SIM.cmv:K[SIM.alvo].cmv)}"></td></tr>
+          <tr><td>Litragem pretendida (L)</td><td class="num">
+            <input type="text" id="s-litros" value="${int(SIM.litros!==null?SIM.litros:K[SIM.alvo].litros)}"></td></tr>
+        </table>
+        <div id="s-resp"></div>
+      </div>
+    </div>
+
+    <div class="aviso" style="margin-top:16px">
+      <b>Imposto quase zerado por litro não é erro.</b> Combustível é
+      <b>monofásico</b>: o ICMS/PIS/COFINS já está dentro do preço de compra, não
+      é debitado na venda. O que entra aqui como imposto é a linha do DRE
+      rateada — mexer no CMV já mexe no tributo embutido.
+      <br><br><b>O resto do negócio acompanha o volume.</b> Etanol, arla,
+      lubrificantes e conveniência entram pela proporção histórica
+      (diesel + gasolina = ${(b.pctDG*100).toFixed(1)}% do faturamento neste mês,
+      média de 94,1% no ano com desvio de 0,7%). Se você simular mais volume, a
+      loja cresce junto — tratá-la como valor fixo subestimaria o ganho.
+    </div>`;
+
+  // --- caminho inverso, calculado sobre o produto escolhido ---
+  const k = K[SIM.alvo];
+  const cmvSim = SIM.cmv !== null ? SIM.cmv : k.cmv;
+  const litrosSim = SIM.litros !== null ? SIM.litros : k.litros;
+  const outro = Object.keys(PROD).find(p => p !== SIM.alvo);
+  // o outro produto e os demais seguem como estao; sobra para este pagar o resto
+  const mcOutro = porProd[outro].mcTotal;
+  const fatOutro = porProd[outro].fat;
+  const variaveis = k.desconto + k.imposto + k.cartao + k.desloc + k.comissao;
+  // preco tal que: mc(este) + mc(outro) + mc(demais) = custo fixo
+  // mc(demais) depende do faturamento total, que depende do preco -> resolve direto
+  const a = b.pctDG ? (1/b.pctDG - 1) * taxaDemais : 0;   // margem demais por R$ de D+G
+  const precoNec = litrosSim > 0
+    ? (fx.valor - mcOutro - fatOutro*a + litrosSim*(cmvSim + variaveis)) /
+      (litrosSim * (1 + a))
+    : null;
+  document.getElementById("s-resp").innerHTML = `
+    <table class="sim" style="margin-top:2px">
+      <tr><td>Demais custos por litro</td><td class="num">${num(variaveis)}</td></tr>
+      <tr><td>Margem que ${PROD[outro].toLowerCase()} e a loja já trazem</td>
+          <td class="num">${fmt(mcOutro + fatOutro*a)}</td></tr>
+      <tr class="tot grande"><td>Preço de venda necessário</td>
+          <td class="num">${precoNec!==null?num(precoNec):"—"}</td></tr>
+    </table>
+    <div class="sim-nota">Preço que zera o resultado do mês inteiro, já contando
+      o que ${PROD[outro].toLowerCase()} e o resto da loja contribuem.
+      ${precoNec!==null?`Hoje o praticado é <b>${num(b.prod[SIM.alvo].preco)}</b>
+      — diferença de <b>${num(precoNec-b.prod[SIM.alvo].preco)}</b> por litro.`:""}</div>`;
+
+  const ler = t => parseFloat(String(t).replace(/\./g,"").replace(",",".")) || 0;
+  document.getElementById("s-mes").onchange = e => { SIM.mes=e.target.value; renderSim(); };
+  document.getElementById("s-reset").onclick = () => { SIM.campos={}; SIM.cmv=null; SIM.litros=null; renderSim(); };
+  document.getElementById("s-alvo").onchange = e => { SIM.alvo=e.target.value; SIM.cmv=null; SIM.litros=null; renderSim(); };
+  document.getElementById("s-cmv").onchange = e => { SIM.cmv=ler(e.target.value); renderSim(); };
+  document.getElementById("s-litros").onchange = e => { SIM.litros=Math.max(1,Math.round(ler(e.target.value))); renderSim(); };
+  document.querySelectorAll("#c-sim input[data-p]").forEach(i=>{
+    i.onchange = () => {
+      const v = ler(i.value);
+      SIM.campos[i.dataset.p][i.dataset.k] = i.dataset.k==="litros" ? Math.max(0,Math.round(v)) : v;
+      renderSim();
+    };
+  });
+}
+
+/* ===================== atualizações ===================== */
+async function renderAtu(){
+  const el = document.getElementById("c-atu");
+  const cargas = await sb("dre_cargas?projeto=eq."+CONFIG.PROJETO+
+                          "&select=*&order=quando.desc&limit=12");
+  const c = cargas?.[0];
+  const quando = c ? new Date(c.quando) : null;
+  const horas = quando ? (Date.now()-quando)/36e5 : null;
+  const idade = horas===null ? "—"
+    : horas < 24 ? Math.round(horas)+"h atrás"
+    : Math.round(horas/24)+" dias atrás";
+  const velho = horas !== null && horas > 36;
+  const CAMINHO = "cd C:&#92;Users&#92;eduar&#92;dre-cotraoeste<br>python atualizar.py";
+
+  el.innerHTML = `
+    <div class="cards">
+      <div class="card"><div class="rot">Dados de</div>
+        <div class="val" style="font-size:16px">${quando?quando.toLocaleString("pt-BR"):"—"}</div>
+        <div style="font-size:12px;color:${velho?"var(--amber)":"var(--text-muted)"};
+             margin-top:3px">${idade}</div></div>
+      <div class="card"><div class="rot">Período na base</div>
+        <div class="val" style="font-size:16px">
+          ${c?rotMes(c.periodo_ini)+" a "+rotMes(c.periodo_fim):"—"}</div></div>
+      <div class="card"><div class="rot">Linhas agregadas</div>
+        <div class="val">${c?c.linhas:"—"}</div></div>
+    </div>
+
+    <div class="barra">
+      <button class="btn" id="a-recarregar">↻ Recarregar os valores</button>
+      <span style="font-size:12px;color:var(--text-muted)">
+        relê o que já está publicado — instantâneo</span>
+    </div>
+
+    <div class="aviso">
+      <b>Trazer dados novos do webPosto é outra coisa.</b>
+      O botão acima relê o que já está no banco. Puxar venda e lançamento novos
+      do sistema roda no seu computador, porque são 234 mil linhas que o
+      navegador não aguenta — e é justamente por elas não passarem por aqui que
+      esta tela abre instantânea. Num terminal:
+      <div style="background:#fff;border:1px solid #E8DCC0;border-radius:6px;
+           padding:9px 12px;margin-top:8px;font-family:ui-monospace,monospace;
+           font-size:12.5px;color:var(--text-primary)">${CAMINHO}</div>
+      <div style="margin-top:7px">Leva ~15 min, é retomável se a internet cair,
+      e fecha em D-1: o dia corrente ainda recebe movimento, e misturar fontes
+      puxadas em horas diferentes faz a litragem nunca fechar. Ao terminar,
+      volte aqui e clique em Recarregar.</div>
+    </div>
+
+    <h3 style="font-size:13px;color:var(--text-secondary);margin:22px 0 8px">
+      Últimas cargas</h3>
+    <div class="lista">
+      ${(cargas||[]).map(x=>`<div class="it"><div class="cab">
+        <span class="assunto">${new Date(x.quando).toLocaleString("pt-BR")}</span>
+        <span class="tag">${rotMes(x.periodo_ini)} a ${rotMes(x.periodo_fim)}</span>
+        <span class="tag">${x.linhas} linhas</span>
+        <span class="meta">${x.origem||""}</span></div></div>`).join("")
+        || '<div class="vazio">Nenhuma carga registrada.</div>'}
+    </div>`;
+
+  document.getElementById("a-recarregar").onclick = async (e)=>{
+    const b = e.target, txt = b.textContent;
+    b.textContent = "recarregando..."; b.disabled = true;
+    try{
+      await carregar(); renderAtu();
+      b.textContent = "✓ atualizado";
+      setTimeout(()=>{ b.textContent = txt; b.disabled = false; }, 1800);
+    }catch(err){
+      b.textContent = "falhou"; b.disabled = false;
+      alert("Não consegui recarregar: "+(err.message||err));
+    }
+  };
+}
+
+/* ===================== modal / navegação ===================== */
+function modal(html){
+  document.getElementById("modal-corpo").innerHTML = html;
+  document.getElementById("modal").classList.remove("oculto");
+}
+function fecharModal(){ document.getElementById("modal").classList.add("oculto"); }
+document.getElementById("modal").onclick = e => { if(e.target.id==="modal") fecharModal(); };
+
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
+  document.getElementById("v-"+b.dataset.v).classList.add("on");
+  ({dre:renderDre, notas:renderNotas, contas:renderContas, fonte:renderFonte,
+    sim:renderSim, atu:renderAtu})[b.dataset.v]();
+});
+document.querySelectorAll(".cg button[data-g]").forEach(b=>b.onclick=()=>{
+  const g=b.dataset.g;
+  document.querySelectorAll('.cg button[data-g="'+g+'"]')
+    .forEach(x=>x.classList.toggle("active", x===b));
+  S[g] = b.dataset.t !== undefined ? b.dataset.t : +b.dataset.v;
+  if(g==="nivel"){ S.abertos.clear(); S.colapsados.clear(); }
+  renderDre();
+});
+document.querySelectorAll(".cg button[data-tog]").forEach(b=>b.onclick=()=>{
+  const k=b.dataset.tog; S[k] = S[k] ? 0 : 1;
+  b.classList.toggle("active", !!S[k]);
+  renderDre();
+});
+document.getElementById("f-conta").oninput  = renderContas;
+document.getElementById("f-sem").onchange   = renderContas;
+document.getElementById("nova-nota").onclick = novaNota;
+
+/* ===================== entrada ===================== */
+async function iniciar(){
+  await carregar();
+  const sel = (id,val)=>{
+    const e=document.getElementById(id);
+    e.innerHTML = S.meses.map(m=>`<option value="${m}">${rotMes(m)}</option>`).join("");
+    e.value = val; e.onchange = ()=>{ S.de=document.getElementById("f-de").value;
+      S.ate=document.getElementById("f-ate").value; renderDre(); };
+  };
+  sel("f-de", S.de); sel("f-ate", S.ate);
+  document.getElementById("quem").textContent =
+    S.sessao.user.email + (S.admin ? " · admin" : " · leitura");
+  renderDre();
+}
+
+document.getElementById("lg-entrar").onclick = async ()=>{
+  const e = document.getElementById("lg-erro"); e.textContent = "";
+  try{
+    S.sessao = await entrar(document.getElementById("lg-email").value.trim(),
+                            document.getElementById("lg-senha").value);
+    localStorage.setItem("dre_sessao", JSON.stringify(S.sessao));
+    const adm = await sb("dre_admins?select=email&email=eq."+
+                         encodeURIComponent(S.sessao.user.email));
+    S.admin = !!adm?.length;
+    document.getElementById("login").classList.add("oculto");
+    await iniciar();
+  }catch(err){ e.textContent = String(err.message||err); }
+};
+document.getElementById("lg-senha").onkeydown = ev =>
+  { if(ev.key==="Enter") document.getElementById("lg-entrar").click(); };
+
+document.getElementById("sair").onclick = ()=>{
+  localStorage.removeItem("dre_sessao"); location.reload();
+};
+
+(async ()=>{
+  const g = localStorage.getItem("dre_sessao");
+  if(!g) return;
+  try{
+    S.sessao = JSON.parse(g);
+    const adm = await sb("dre_admins?select=email&email=eq."+
+                         encodeURIComponent(S.sessao.user.email));
+    S.admin = !!adm?.length;
+    document.getElementById("login").classList.add("oculto");
+    await iniciar();
+  }catch(_){ localStorage.removeItem("dre_sessao"); }
+})();
+</script>
+</body>
+</html>
