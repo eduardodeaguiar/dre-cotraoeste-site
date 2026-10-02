@@ -33,13 +33,159 @@ header h1{margin:0;font-size:15px;font-weight:500;letter-spacing:.2px;
 header .marca{height:30px;background:#fff;border-radius:6px;padding:4px 9px;
   display:block}
 /* Igual ao rodape da sidebar do BI Frotas: faixa escura #15151a, rotulo em
-   caixa alta espacada e o logo BRANCO sem filtro nenhum. Antes eu recolorizava
-   o PNG branco com invert() sobre fundo claro -- virava cinza barrento. */
+   caixa alta espacada e o logo BRANCO sem filtro nenhum. Recolorir o PNG
+   branco com invert() sobre fundo claro dava um cinza barrento. */
 .rodape{background:#15151a;margin-top:34px;padding:22px 0 26px;
   text-align:center;color:#6b6b75;font-size:10px;text-transform:uppercase;
   letter-spacing:1.5px;font-weight:700;line-height:1.9}
-.rodape img{display:block;margin:3px auto 0;width:150px;max-width:62%;
-  opacity:.92}
+.rodape img{display:block;margin:3px auto 0;width:150px;max-width:62%;opacity:.92}
+header .emp{color:var(--green);font-weight:500}
+header .dir{margin-left:auto;display:flex;align-items:center;gap:12px;
+  font-size:12px;color:#B0BBC8}
+header button{background:rgba(255,255,255,.1);color:#fff;border:0;
+  padding:6px 12px;border-radius:6px;font-size:12px}
+header button:hover{background:rgba(255,255,255,.2)}
+
+nav{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 22px;display:flex;gap:2px;position:sticky;top:0;z-index:30}
+nav button{background:none;border:0;padding:13px 16px;font-size:13px;
+  font-weight:500;color:var(--text-secondary);border-bottom:2px solid transparent}
+nav button:hover{color:var(--text-primary)}
+nav button.on{color:var(--green-dark);border-bottom-color:var(--green)}
+
+main{padding:20px 22px 60px}
+.view{display:none}.view.on{display:block}
+
+/* ---------- barra de ferramentas ---------- */
+.barra{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.barra label{font-size:12px;color:var(--text-secondary)}
+select,input[type=text],input[type=password],input[type=email],textarea{
+  font:inherit;padding:7px 10px;border:1px solid var(--border);border-radius:6px;
+  background:var(--surface);color:var(--text-primary)}
+.btn{background:var(--green);color:#fff;border:0;padding:8px 14px;border-radius:6px;
+  font-size:13px;font-weight:500}
+.btn:hover{background:var(--green-dark)}
+.btn.sec{background:var(--surface);color:var(--text-secondary);
+  border:1px solid var(--border)}
+.btn.sec:hover{border-color:var(--text-muted);color:var(--text-primary)}
+
+/* ---------- barra de grupos (padrao BI Frotas) ---------- */
+.ctl{display:flex;flex-wrap:wrap;align-items:center;gap:0;margin-bottom:14px;
+  background:var(--surface);border:1px solid var(--border);border-radius:9px;
+  padding:7px 10px}
+.cg{display:flex;align-items:center;gap:5px;padding:0 11px}
+.cg .cl{font-size:11px;color:var(--text-muted);text-transform:uppercase;
+  letter-spacing:.4px;margin-right:3px}
+.cg button{background:none;border:1px solid transparent;border-radius:6px;
+  padding:4px 10px;font-size:12.5px;color:var(--text-secondary)}
+.cg button:hover{background:var(--border-light);color:var(--text-primary)}
+.cg button.active{background:var(--green-light);border-color:var(--green);
+  color:var(--green-dark);font-weight:600}
+.cs{width:1px;align-self:stretch;background:var(--border);margin:2px 0}
+
+/* ---------- tabela ---------- */
+.quadro{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  overflow:auto;max-height:calc(100vh - 210px)}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+thead th{position:sticky;top:var(--t1,0);z-index:20;background:var(--dark);color:#fff;
+  font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;
+  padding:10px 12px;text-align:right;white-space:nowrap}
+/* Escopo na PRIMEIRA linha: ':first-child' solto pega tambem o 'R$' de janeiro
+   na linha de baixo, que ia para a esquerda e grudava como se fosse a coluna
+   Conta -- era o bloco branco na regua de litros. */
+thead tr:first-child th:first-child{text-align:left;left:0;z-index:25}
+/* A primeira coluna fica com largura FIXA nas tres linhas do cabecalho e no
+   corpo. Deixar o navegador decidir fazia a etiqueta da regua parar em 330px
+   enquanto a coluna ia a 392, e sobrava um branco entre as duas. */
+#t-dre thead tr:first-child th:first-child,
+#t-dre tbody td:first-child{width:370px;min-width:370px;max-width:370px}
+#t-dre tbody td:first-child{overflow:hidden;text-overflow:ellipsis}
+/* O risco separa um mes do outro e atravessa as colunas de AV e AH: sem ele,
+   com tres colunas por mes, a vista perde onde um periodo acaba. */
+thead th.ini,tbody td.ini{border-left:2px solid var(--border)}
+thead tr:first-child th.ini{border-left:2px solid rgba(255,255,255,.28)}
+tbody td{padding:5px 12px;text-align:right;white-space:nowrap;
+  border-bottom:1px solid var(--border-light);font-variant-numeric:tabular-nums}
+tbody td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);
+  z-index:10;border-right:1px solid var(--border)}
+tbody tr:hover td{background:#FAFCFE}
+tbody tr:hover td:first-child{background:#FAFCFE}
+
+tr.n0 td{background:var(--n1);color:#fff;font-weight:600}
+/* A Receita Operacional Bruta fica congelada: e a referencia de toda a AV, e
+   rolar a tabela sem ela na tela tira o denominador de vista. */
+tr.fixa td{position:sticky;top:var(--t4,78px);z-index:15}
+tr.fixa td:first-child{z-index:18}
+tr.n0 td:first-child{background:var(--n1)}
+tr.n0:hover td,tr.n0:hover td:first-child{background:#333}
+tr.n1 td{background:var(--n2);color:#fff;font-weight:500}
+tr.n1 td:first-child{background:var(--n2)}
+tr.n1:hover td,tr.n1:hover td:first-child{background:#5a5a5a}
+/* As linhas de resultado no verde da marca: sao o que se procura primeiro
+   quando se abre um DRE, e precisam saltar antes de qualquer outra coisa. */
+tr.kpi td{background:var(--green);font-style:italic;font-weight:700;color:#fff}
+tr.kpi td:first-child{background:var(--green)}
+tr.kpi:hover td,tr.kpi:hover td:first-child{background:#179134}
+tr.kpi .neg{color:#FFD6D0}
+tr.kpi td.col-av{color:#D8F3E0}
+tr.kpi td.col-ah{color:#CFE9D8}
+tr.kpi td.col-ah.sobe{color:#B9F7D2}
+tr.kpi td.col-ah.desce{color:#FFC2BA}
+tr.vazia td{height:7px;padding:0;background:var(--bg)!important;border:0}
+
+.neg{color:var(--red)}
+tr.n0 .neg,tr.n1 .neg{color:#FF9A8F}
+/* AV acompanha o tamanho da linha e se separa pela COR. */
+thead tr.regua th{position:sticky;top:var(--t3,56px);z-index:20;background:#20262F;
+  color:#C9D3DE;font-size:10px;font-weight:600;padding:4px 12px;
+  border-top:1px solid #333B46;text-align:right}
+thead tr:first-child th:first-child .reg-rot{display:block;margin-top:7px;
+  font-size:10px;font-weight:500;color:var(--text-light);text-transform:none;
+  letter-spacing:0}
+thead tr.regua th.mediaCol{background:#12772A;color:#D8F3E0}
+thead tr:nth-child(2) th{top:var(--t2,34px)}
+thead th.sub{font-size:10px;padding:4px 12px;background:var(--dark-soft);
+  letter-spacing:.3px}
+thead th.mediaCol{background:var(--media-cab)}
+td.mediaCol{background:var(--media-bg)}
+tbody tr:hover td.mediaCol{background:#E6F6EB}
+tr.n0:hover td.mediaCol{background:#1f1f1f}
+tr.n1:hover td.mediaCol{background:#565656}
+tr.kpi:hover td.mediaCol{background:#0F6B25}
+tr.det:hover td.mediaCol{background:#EDF8F0}
+tr.n0 td.mediaCol{background:var(--n1)}
+tr.n1 td.mediaCol{background:var(--n2)}
+tr.kpi td.mediaCol{background:var(--green-dark)}
+tr.det td.mediaCol{background:#F4FBF6}
+/* 'tr td.col-av' e nao 'td.col-av': a regra da linha tem um elemento a mais e
+   ganharia na especificidade -- a AV da conta saia cinza. */
+tr td.col-av{color:var(--green-dark);font-weight:500;font-size:11.5px}
+tr.n0 td.col-av,tr.n1 td.col-av{color:#B7E08F}
+/* A AH tem o mesmo corpo da AV; muda a cor, e a cor aqui quer dizer MELHOROU
+   ou PIOROU, nao subiu ou desceu. Despesa vive negativa: crescer sai vermelho. */
+tr td.col-ah{color:var(--text-muted);font-weight:500;font-size:11.5px}
+tr td.col-ah.sobe{color:#12855A}
+tr td.col-ah.desce{color:#C1121F}
+tr.n0 td.col-ah,tr.n1 td.col-ah{color:#C4CBD6}
+tr.n0 td.col-ah.sobe,tr.n1 td.col-ah.sobe{color:#5FD89E}
+tr.n0 td.col-ah.desce,tr.n1 td.col-ah.desce{color:#FF9A8F}
+.caret.mais{color:var(--green);font-weight:700}
+tr.det td{font-size:12px;font-style:italic;color:var(--text-muted);
+  background:#FCFDFE}
+tr.det td:first-child{background:#FCFDFE}
+tr.det td:first-child::before{content:"↳ ";color:var(--text-light)}
+tr.det:hover td,tr.det:hover td:first-child{background:#F6F9FB}
+td.man{background:var(--blue-light)!important;color:var(--blue);font-weight:600;
+  cursor:pointer;position:relative}
+td.man::after{content:"✎";position:absolute;right:3px;top:1px;font-size:9px;opacity:.75}
+td.edit{cursor:cell}
+td.edit:hover{outline:1.5px solid var(--green);outline-offset:-1.5px}
+.rot{display:inline-block}
+.caret{display:inline-block;width:14px;color:var(--text-muted);cursor:pointer;
+  user-select:none;font-size:10px}
+tr.n0 .caret,tr.n1 .caret{color:rgba(255,255,255,.6)}
+.temnota{color:var(--amber);font-size:11px;margin-left:5px;cursor:help}
+
 /* ---------- simulador ---------- */
 .sim-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
   gap:14px;align-items:start}
