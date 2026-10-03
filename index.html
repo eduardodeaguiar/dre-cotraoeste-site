@@ -144,6 +144,11 @@ thead tr.regua th{position:sticky;top:var(--t3,56px);z-index:20;background:#2026
 thead tr:first-child th:first-child .reg-rot{display:block;margin-top:7px;
   font-size:10px;font-weight:500;color:var(--text-light);text-transform:none;
   letter-spacing:0}
+/* o caret da regua vive sobre fundo escuro: o cinza padrao sumiria */
+.reg-rot .caret{color:rgba(255,255,255,.55);width:12px}
+.reg-rot .caret.mais{color:#4ED46E;font-weight:700}
+tr.porlitro td{background:#F7FBF8}
+tr.porlitro td.ini{font-variant-numeric:tabular-nums}
 thead tr.regua th.mediaCol{background:#12772A;color:#D8F3E0}
 thead tr:nth-child(2) th{top:var(--t2,34px)}
 thead th.sub{font-size:10px;padding:4px 12px;background:var(--dark-soft);
@@ -412,6 +417,10 @@ const S = {
 
 const fmt = n => (n===null||n===undefined||isNaN(n)) ? "" :
   n.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+/* R$/litro vive na terceira e quarta casa: a margem de contribuicao da
+   ordem de 0,02 some inteira se arredondar em duas. */
+const fmt4 = n => (n===null||n===undefined||isNaN(n)) ? "" :
+  n.toLocaleString("pt-BR",{minimumFractionDigits:4,maximumFractionDigits:4});
 const rotMes = m => { const [a,b]=m.split("-"); return b+"/"+a.slice(2); };
 
 /* ===================== Supabase por REST puro ===================== */
@@ -449,6 +458,7 @@ async function carregar(){
     sb("dre_cargas?"+p+"&select=*&order=quando.desc&limit=1")
   ]);
   S.estrutura = est;
+  registrarPorLitro();   // as linhas por litro so existem depois da estrutura
   S.fato = {};
   for(const f of fat){ (S.fato[f.mes] = S.fato[f.mes]||{})[f.chave] = +f.valor; }
   S.edicoes = {};
@@ -605,6 +615,20 @@ const PE = {
   182: vc => { const p = vc(3) ? vc(6)/vc(3) : 0, b = PE[180](vc);
                return (p && b!==null) ? b*0.95/p : null; }
 };
+/* Analitico da regua de litros: 3001 faturamento, 3002 faturamento liquido,
+   3003 CMV, 3004 margem de contribuicao -- todos por litro de combustivel.
+   A linha de origem vem na estrutura (config.de), entao mudar a conta do DRE
+   nao exige mexer aqui. */
+let S_POR_LITRO = {};
+function registrarPorLitro(){
+  S_POR_LITRO = {};
+  (S.estrutura||[]).forEach(i=>{
+    if(!i.config?.por_litro) return;
+    const de = i.config.de;
+    S_POR_LITRO[i.linha] = true;
+    PE[i.linha] = vc => { const l = vc(3); return l ? vc(de)/l : null; };
+  });
+}
 function valorColBase(calc, linha, col){
   const vs = col.meses.map(m=>calc[m]?.[linha]).filter(v=>v!==null&&v!==undefined&&!isNaN(v));
   if(!vs.length) return null;
@@ -617,7 +641,9 @@ function valorCol(calc, linha, col){
   return valorColBase(calc, linha, col);
 }
 function av(calc, linha, col){
-  const b = valorCol(calc, LINHA_BASE, col);
+  // numa linha por litro a base e o faturamento por litro (3001): assim o AV
+  // do CMV/L da exatamente o CMV sobre a receita, igual ao da linha em reais
+  const b = valorCol(calc, S_POR_LITRO[linha] ? 3001 : LINHA_BASE, col);
   const v = valorCol(calc, linha, col);
   return (b && v!==null) ? v/b : null;
 }
@@ -637,7 +663,11 @@ function ah(calc, linha, cols, i, emPP){
     return [fmtPP(d), Math.abs(d)<0.00005 ? "" : (d>0?"sobe":"desce")];
   }
   const base = valorCol(calc,linha,ant), atual = valorCol(calc,linha,cols[i]);
-  if(base===null || atual===null || Math.abs(base)<0.5) return ["",""];
+  // Piso para nao calcular variacao sobre quase-zero. Em reais, meio real; num
+  // indicador por litro a margem inteira vive abaixo disso -- com o piso dos
+  // reais, a variacao da margem por litro simplesmente nao aparecia.
+  const piso = S_POR_LITRO[linha] ? 0.0005 : 0.5;
+  if(base===null || atual===null || Math.abs(base)<piso) return ["",""];
   const h = atual/base - 1;
   return [fmtVar(h), Math.abs(h)<0.00005 ? "" : ((h>0)===(base>0) ? "sobe":"desce")];
 }
@@ -719,8 +749,13 @@ function renderDre(){
   };
 
   const nCol = cols.length * (1 + (S.av?1:0) + (S.ah?1:0));
+  // A regua de litros e uma linha sintetica: o caret abre o analitico por
+  // litro, que entra no topo do corpo logo abaixo dela.
+  const regAberta = S.abertos.has(3);
+  const caretReg = "<span class='caret" + (regAberta ? "" : " mais") +
+                   "' data-ln='3'>" + (regAberta ? "▾" : "▸") + "</span>";
   let h = "<thead><tr><th rowspan='3'>Conta"
-          + "<div class='reg-rot'>Litros vendidos</div></th>";
+          + "<div class='reg-rot'>" + caretReg + "Litros vendidos</div></th>";
   cols.forEach(c=>{
     const n = 1 + (S.av?1:0) + (S.ah?1:0);
     h += "<th colspan='"+n+"' class='ini"+(c.tipo==="media"?" mediaCol":"")+"'>"+c.rotulo+"</th>";
@@ -753,6 +788,7 @@ function renderDre(){
     const total = /^\(=\)/.test(rot), grupo = /^\([+\-]\)/.test(rot);
     let cls = total ? "kpi" : (niv===0 && grupo ? "n0" : (niv<=1 && it.tipo==="grupo" ? "n1" : ""));
     if(it.tipo==="info") cls = "det";
+    if(it.config?.por_litro) cls = "det porlitro";
     if(it.linha === LINHA_BASE) cls += " fixa";   // a ROB acompanha a rolagem
 
     const soAnalitico = (filhos[it.linha]||[]).map(f=>f.linha);
@@ -770,9 +806,11 @@ function renderDre(){
               '" data-ln="'+it.linha+'">'+(fechado?"▸":"▾")+'</span>';
     }
     const aj = it.config?.ajuda ? ' title="'+it.config.ajuda.replace(/"/g,"&quot;")+'"' : '';
-    h += '<tr class="'+cls+'"><td style="padding-left:'+(10+niv*15)+'px"'+aj+'>'+caret+
+    const recuo = it.config?.recuo ?? niv;
+    h += '<tr class="'+cls+'"><td style="padding-left:'+(10+recuo*15)+'px"'+aj+'>'+caret+
          '<span class="rot">'+rot+'</span></td>';
 
+    const fmtLinha = it.config?.por_litro ? fmt4 : fmt;
     cols.forEach((c,ci)=>{
       const v = valorCol(calc, it.linha, c);
       const ed = c.tipo==="mes" ? S.edicoes[it.linha+"|"+c.meses[0]] : null;
@@ -782,7 +820,7 @@ function renderDre(){
                (v<0?"neg":"")+cm+'"';
       if(c.tipo==="mes") td += ' data-ln="'+it.linha+'" data-mes="'+c.meses[0]+'"';
       if(ed) td += ' title="'+(ed.motivo||"editado").replace(/"/g,"&quot;")+' — '+(ed.autor||"?")+'"';
-      td += '>'+fmt(v)+(nt?'<span class="temnota" title="'+
+      td += '>'+fmtLinha(v)+(nt?'<span class="temnota" title="'+
             nt.map(x=>x.texto.replace(/"/g,"&quot;")).join(" | ")+'">●</span>':'')+'</td>';
       h += td;
       if(S.av) h += '<td class="col-av'+cm+'">'+(v===null||Math.abs(v)<0.5?"":fmtPct(av(calc,it.linha,c)))+'</td>';
