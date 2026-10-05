@@ -462,12 +462,10 @@ async function carregar(){
   S.estrutura = est;
   // o cardapio de combustiveis vem junto da regua (linha 3)
   S.produtos = est.find(i=>i.linha===3)?.config?.produtos || [];
-  const validos = new Set(S.produtos.map(p=>p.id));
-  let guardado = [];
-  try { guardado = JSON.parse(localStorage.getItem("dre-comb") || "[]"); } catch(e){}
-  // produto que saiu do cardapio nao pode continuar marcado
-  guardado = guardado.filter(id=>validos.has(id));
-  S.combSel = new Set(guardado.length ? guardado : validos);
+  // Sempre todos marcados ao abrir: o padrao e a empresa inteira, e uma
+  // selecao guardada da visita passada faria o numero parecer o do DRE sem
+  // ser. A escolha vale enquanto a aba estiver aberta.
+  S.combSel = new Set(S.produtos.map(p=>p.id));
   registrarPorLitro();   // as linhas por litro so existem depois da estrutura
   S.fato = {};
   for(const f of fat){ (S.fato[f.mes] = S.fato[f.mes]||{})[f.chave] = +f.valor; }
@@ -1658,7 +1656,6 @@ function renderComb(){
       if(S.combSel.size === 1) return;
       S.combSel.delete(id);
     } else S.combSel.add(id);
-    try { localStorage.setItem("dre-comb", JSON.stringify([...S.combSel])); } catch(e){}
     renderComb(); renderDre();
   });
 }
