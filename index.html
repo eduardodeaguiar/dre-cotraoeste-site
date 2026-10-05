@@ -731,7 +731,11 @@ function registrarPorLitro(){
       const fatia = rob ? (vc(LINHA_FAT_COMB) * f.bruto) / rob : 0;
       let soma = 0;
       exato.forEach(([n, medida]) => soma += vc(n) * (f[medida] ?? 1));
-      rateio.forEach(([total, jaContado]) => soma += (vc(total) - vc(jaContado)) * fatia);
+      // [total, ...a descontar]: o que sobra depois de tirar as partes que
+      // ja sao de alguem -- o combustivel pelo exato, arla e conveniencia
+      // porque sao de outra categoria e nao devem pesar no litro
+      rateio.forEach(([total, ...tirar]) =>
+        soma += (vc(total) - tirar.reduce((a,n)=>a+vc(n),0)) * fatia);
       return soma / litros;
     };
   });
