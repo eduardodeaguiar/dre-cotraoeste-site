@@ -329,9 +329,9 @@ table.sim input:focus{outline:2px solid var(--green);outline-offset:-1px}
     <div class="ctl" id="ctl-comb"></div>
     <div class="ctl">
       <div class="cg"><span class="cl">Nível</span>
-        <button data-g="nivel" data-v="0">1</button>
+        <button data-g="nivel" data-v="0" class="active">1</button>
         <button data-g="nivel" data-v="1">2</button>
-        <button data-g="nivel" data-v="2" class="active">3</button>
+        <button data-g="nivel" data-v="2">3</button>
         <button data-g="nivel" data-v="3">4</button>
       </div>
       <div class="cs"></div>
@@ -343,14 +343,14 @@ table.sim input:focus{outline:2px solid var(--green);outline-offset:-1px}
       </div>
       <div class="cs"></div>
       <div class="cg"><span class="cl">Média</span>
-        <button data-g="media" data-t="Nenhuma">Nenhuma</button>
-        <button data-g="media" data-t="Trimestral" class="active">Trimestral</button>
+        <button data-g="media" data-t="Nenhuma" class="active">Nenhuma</button>
+        <button data-g="media" data-t="Trimestral">Trimestral</button>
         <button data-g="media" data-t="Semestral">Semestral</button>
         <button data-g="media" data-t="Anual">Anual</button>
       </div>
       <div class="cs"></div>
       <div class="cg"><span class="cl">Análise</span>
-        <button data-tog="av" class="active">AV</button>
+        <button data-tog="av">AV</button>
         <button data-tog="ah">AH</button>
       </div>
       <div class="cs"></div>
@@ -413,7 +413,7 @@ const S = {
   sessao:null, admin:false,
   estrutura:[], fato:{}, edicoes:{}, notas:[], contas:[], carga:null,
   meses:[], de:null, ate:null, colapsados:new Set(), abertos:new Set(),
-  nivel:2, periodo:'Mês', media:'Trimestral', av:1, ah:0,
+  nivel:0, periodo:'Mês', media:'Nenhuma', av:0, ah:0,
   produtos:[], combSel:new Set()
 };
 
@@ -873,16 +873,22 @@ function renderDre(){
     const soAnalitico = (filhos[it.linha]||[]).map(f=>f.linha);
     const meusFilhos = ehResultado(it) ? soAnalitico
                      : [...(it.config?.parcelas||[]), ...soAnalitico];
-    const temEscondido = meusFilhos.some(f=>{
-      const fi = S.estrutura.find(x=>x.linha===f);
-      return fi && (fi.nivel||0) > nivelMax;
-    });
+    /* A flecha diz UMA coisa: tem filho na tela ou nao. Antes ela perguntava
+       se ALGUM filho estava escondido, e uma linha com filhos de niveis
+       diferentes -- parte visivel, parte nao -- aparecia fechada com a lista
+       aberta logo abaixo. Dai o clique duplo: o primeiro so acertava a flecha.
+       O verde continua querendo dizer "tem mais coisa aqui dentro". */
+    const infoFilhos = meusFilhos
+      .map(f=>S.estrutura.find(x=>x.linha===f)).filter(Boolean);
+    const escondidos = infoFilhos.filter(fi=>(fi.nivel||0) > nivelMax).length;
+    const temEscondido = escondidos > 0;
+    const aberto = S.abertos.has(it.linha);
     let caret = '<span class="caret"></span>';
     if(meusFilhos.length){
-      const fechado = S.colapsados.has(it.linha) ||
-                      (temEscondido && !S.abertos.has(it.linha));
-      caret = '<span class="caret'+(temEscondido&&!S.abertos.has(it.linha)?" mais":"")+
-              '" data-ln="'+it.linha+'">'+(fechado?"▸":"▾")+'</span>';
+      const nenhumNaTela = S.colapsados.has(it.linha) ||
+                           (escondidos === infoFilhos.length && !aberto);
+      caret = '<span class="caret'+(temEscondido && !aberto ? " mais" : "")+
+              '" data-ln="'+it.linha+'">'+(nenhumNaTela?"▸":"▾")+'</span>';
     }
     const aj = it.config?.ajuda ? ' title="'+it.config.ajuda.replace(/"/g,"&quot;")+'"' : '';
     const recuo = it.config?.recuo ?? niv;
