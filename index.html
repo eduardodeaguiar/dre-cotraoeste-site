@@ -360,6 +360,7 @@ table.sim input:focus{outline:2px solid var(--green);outline-offset:-1px}
       <div class="cs"></div>
       <span id="dica" style="font-size:12px;color:var(--text-muted);padding-left:8px"></span>
     </div>
+    <div class="ctl" id="ctl-comb"></div>
     <div class="quadro"><table id="t-dre"></table></div>
   </section>
 
@@ -412,7 +413,8 @@ const S = {
   sessao:null, admin:false,
   estrutura:[], fato:{}, edicoes:{}, notas:[], contas:[], carga:null,
   meses:[], de:null, ate:null, colapsados:new Set(), abertos:new Set(),
-  nivel:2, periodo:'Mês', media:'Trimestral', av:1, ah:0
+  nivel:2, periodo:'Mês', media:'Trimestral', av:1, ah:0,
+  produtos:[], combSel:new Set()
 };
 
 const fmt = n => (n===null||n===undefined||isNaN(n)) ? "" :
@@ -458,6 +460,14 @@ async function carregar(){
     sb("dre_cargas?"+p+"&select=*&order=quando.desc&limit=1")
   ]);
   S.estrutura = est;
+  // o cardapio de combustiveis vem junto da regua (linha 3)
+  S.produtos = est.find(i=>i.linha===3)?.config?.produtos || [];
+  const validos = new Set(S.produtos.map(p=>p.id));
+  let guardado = [];
+  try { guardado = JSON.parse(localStorage.getItem("dre-comb") || "[]"); } catch(e){}
+  // produto que saiu do cardapio nao pode continuar marcado
+  guardado = guardado.filter(id=>validos.has(id));
+  S.combSel = new Set(guardado.length ? guardado : validos);
   registrarPorLitro();   // as linhas por litro so existem depois da estrutura
   S.fato = {};
   for(const f of fat){ (S.fato[f.mes] = S.fato[f.mes]||{})[f.chave] = +f.valor; }
@@ -628,23 +638,72 @@ const PE = {
    estrutura, entao mudar a conta do DRE nao exige mexer aqui. */
 const LINHA_FAT_COMB = 6;
 let S_POR_LITRO = {};
+
+/* Soma chaves cruas do fato dentro de uma coluna. Mesma regra do valorColBase:
+   mes que nao tem nenhuma das chaves fica de fora, para a media nao dividir
+   por um mes em que o produto nem existia. */
+function fatoCol(col, chaves){
+  const vs = [];
+  for(const m of col.meses){
+    const f = S.fato[m]; if(!f) continue;
+    let achou = false, s = 0;
+    for(const k of chaves){ if(f[k]!==undefined){ achou = true; s += f[k]; } }
+    if(achou) vs.push(s);
+  }
+  if(!vs.length) return 0;
+  const s = vs.reduce((a,b)=>a+b,0);
+  return col.tipo==="media" ? s/vs.length : s;
+}
+
+/* Quanto os combustiveis marcados representam do total, por medida.
+   O indicador nao recalcula o DRE: ele ENCOLHE a linha do DRE nessa
+   proporcao. Assim o numero herda o que o demonstrativo ja tem -- a exclusao
+   do consumo interno, as edicoes manuais -- e com tudo marcado o fator da 1 e
+   o resultado e identico ao de antes do menu existir. */
+function fatoresComb(col){
+  const todos = (S.produtos||[]).map(p=>p.id);
+  const sel = todos.filter(id=>S.combSel.has(id));
+  const out = {};
+  for(const med of ["qtd","bruto","custo","desconto"]){
+    const tot = fatoCol(col, todos.map(id=>`cmb:${med}:${id}`));
+    out[med] = tot ? fatoCol(col, sel.map(id=>`cmb:${med}:${id}`)) / tot : 0;
+  }
+  return out;
+}
+
+/* Analitico da regua de litros. Dividir o DRE inteiro por litro de
+   combustivel misturaria o faturamento da loja com o volume da bomba, entao
+   cada indicador soma duas partes:
+
+     exato  -- as linhas que o DRE ja separa em "1. Combustivel", cada uma
+               encolhida pelo fator da medida que lhe corresponde
+     rateio -- o que nao da para separar entra pela fatia que os combustiveis
+               selecionados tem no faturamento total
+
+   Cada par de `rateio` e [total do bloco, parte ja contada no exato]: o que
+   sobra e que leva o rateio, para nada entrar duas vezes. */
 function registrarPorLitro(){
   S_POR_LITRO = {};
   (S.estrutura||[]).forEach(i=>{
     if(!i.config?.por_litro) return;
     const exato = i.config.exato || [], rateio = i.config.rateio || [];
     S_POR_LITRO[i.linha] = true;
-    PE[i.linha] = vc => {
-      const litros = vc(3);
+    PE[i.linha] = (vc, col) => {
+      const f = col ? fatoresComb(col) : {qtd:1, bruto:1, custo:1, desconto:1};
+      const litros = vc(3) * f.qtd;
       if(!litros) return null;
       const rob = vc(LINHA_BASE);
-      const fatia = rob ? vc(LINHA_FAT_COMB)/rob : 0;
+      const fatia = rob ? (vc(LINHA_FAT_COMB) * f.bruto) / rob : 0;
       let soma = 0;
-      exato.forEach(n => soma += vc(n));
+      exato.forEach(([n, medida]) => soma += vc(n) * (f[medida] ?? 1));
       rateio.forEach(([total, jaContado]) => soma += (vc(total) - vc(jaContado)) * fatia);
       return soma / litros;
     };
   });
+  // Litros considerados: o denominador precisa estar visivel. Fica FORA do
+  // S_POR_LITRO de proposito -- aquele conjunto define a base do AV e o piso
+  // do AH, e esta linha e litragem, nao R$/litro.
+  PE[3000] = (vc, col) => vc(3) * (col ? fatoresComb(col).qtd : 1);
 }
 
 function valorColBase(calc, linha, col){
@@ -655,7 +714,7 @@ function valorColBase(calc, linha, col){
   return col.tipo==="media" ? s/vs.length : s;
 }
 function valorCol(calc, linha, col){
-  if(PE[linha]) return PE[linha](n=>valorColBase(calc,n,col) || 0);
+  if(PE[linha]) return PE[linha](n=>valorColBase(calc,n,col) || 0, col);
   return valorColBase(calc, linha, col);
 }
 function av(calc, linha, col){
@@ -733,6 +792,7 @@ function linhasPP(pais){
 }
 
 function renderDre(){
+  renderComb();
   const ms = mesesVisiveis();
   const calc = {}; ms.forEach(m=>calc[m]=calcular(m));
   const cols = montarColunas(ms);
@@ -806,7 +866,8 @@ function renderDre(){
     const total = /^\(=\)/.test(rot), grupo = /^\([+\-]\)/.test(rot);
     let cls = total ? "kpi" : (niv===0 && grupo ? "n0" : (niv<=1 && it.tipo==="grupo" ? "n1" : ""));
     if(it.tipo==="info") cls = "det";
-    if(it.config?.por_litro) cls = "det porlitro";
+    // a linha de litros entra no mesmo bloco visual, mesmo nao sendo R$/litro
+    if(it.config?.por_litro || it.config?.litros_sel) cls = "det porlitro";
     if(it.linha === LINHA_BASE) cls += " fixa";   // a ROB acompanha a rolagem
 
     const soAnalitico = (filhos[it.linha]||[]).map(f=>f.linha);
@@ -841,7 +902,9 @@ function renderDre(){
       td += '>'+fmtLinha(v)+(nt?'<span class="temnota" title="'+
             nt.map(x=>x.texto.replace(/"/g,"&quot;")).join(" | ")+'">●</span>':'')+'</td>';
       h += td;
-      if(S.av) h += '<td class="col-av'+cm+'">'+(v===null||Math.abs(v)<0.5?"":fmtPct(av(calc,it.linha,c)))+'</td>';
+      if(S.av) h += '<td class="col-av'+cm+'">'
+        + (it.config?.sem_av || v===null || Math.abs(v)<0.5
+           ? "" : fmtPct(av(calc,it.linha,c))) + '</td>';
       if(S.ah){
         const [t,cor] = ah(calc, it.linha, cols, ci, pp.has(it.linha));
         h += '<td class="col-ah '+cor+cm+'">'+t+'</td>';
@@ -1493,19 +1556,24 @@ async function renderAtu(){
         relê o que já está publicado — instantâneo</span>
     </div>
 
+    <div class="barra">
+      <button class="btn" id="a-atualizar"${S.admin?"":" disabled"}>⟳ Atualizar agora</button>
+      <span id="a-estado" style="font-size:12px;color:var(--text-muted)">${
+        S.admin ? "vai ao webPosto buscar movimento novo — leva ~4 min, na nuvem"
+                : "só quem edita pode disparar uma atualização"}</span>
+    </div>
+
     <div class="aviso">
-      <b>Trazer dados novos do webPosto é outra coisa.</b>
-      O botão acima relê o que já está no banco. Puxar venda e lançamento novos
-      do sistema roda no seu computador, porque são 234 mil linhas que o
-      navegador não aguenta — e é justamente por elas não passarem por aqui que
-      esta tela abre instantânea. Num terminal:
-      <div style="background:#fff;border:1px solid #E8DCC0;border-radius:6px;
-           padding:9px 12px;margin-top:8px;font-family:ui-monospace,monospace;
-           font-size:12.5px;color:var(--text-primary)">${CAMINHO}</div>
-      <div style="margin-top:7px">Leva ~15 min, é retomável se a internet cair,
-      e fecha em D-1: o dia corrente ainda recebe movimento, e misturar fontes
-      puxadas em horas diferentes faz a litragem nunca fechar. Ao terminar,
-      volte aqui e clique em Recarregar.</div>
+      <b>Os dois botões fazem coisas diferentes.</b>
+      <i>Recarregar</i> relê o que já está no banco: instantâneo, não busca nada
+      novo. <i>Atualizar agora</i> dispara a rodada que vai ao webPosto, remonta
+      a base e republica — ela acontece na nuvem, não no seu computador, e os
+      valores desta tela se atualizam sozinhos quando ela terminar.
+      <div style="margin-top:7px">A mesma rodada acontece sozinha quatro vezes
+      por dia. Ela fecha em D-1: o dia corrente ainda recebe movimento, e
+      misturar fontes puxadas em horas diferentes faz a litragem nunca fechar.</div>
+      <div style="margin-top:7px;font-size:12px;color:var(--text-muted)">
+        Para rodar no seu computador, se precisar: <code>${CAMINHO}</code></div>
     </div>
 
     <h3 style="font-size:13px;color:var(--text-secondary);margin:22px 0 8px">
@@ -1519,6 +1587,16 @@ async function renderAtu(){
         || '<div class="vazio">Nenhuma carga registrada.</div>'}
     </div>`;
 
+  const btAtu = document.getElementById("a-atualizar");
+  if(btAtu && S.admin){
+    btAtu.onclick = ()=> dispararAtualizacao(btAtu);
+    // se uma rodada ja estava em curso quando a aba abriu, mostra e acompanha
+    apiWorker("/api/status").then(st=>{
+      if(st && (st.estado==="queued" || st.estado==="in_progress"))
+        acompanhar(btAtu, st);
+    }).catch(()=>{});
+  }
+
   document.getElementById("a-recarregar").onclick = async (e)=>{
     const b = e.target, txt = b.textContent;
     b.textContent = "recarregando..."; b.disabled = true;
@@ -1531,6 +1609,105 @@ async function renderAtu(){
       alert("Não consegui recarregar: "+(err.message||err));
     }
   };
+}
+
+/* Menu de combustiveis. Mexe SO nos indicadores por litro: o DRE em reais
+   continua sendo o da empresa inteira, e misturar as duas coisas na mesma
+   tela sem dizer qual e qual seria pior que nao ter o menu. */
+function renderComb(){
+  const el = document.getElementById("ctl-comb");
+  if(!el) return;
+  if(!(S.produtos||[]).length){ el.style.display = "none"; return; }
+  el.style.display = "";
+  const esc = s => String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;")
+                            .replace(/</g,"&lt;");
+  el.innerHTML = '<div class="cg"><span class="cl">Combustível</span>'
+    + S.produtos.map(p=>'<button data-comb="'+esc(p.id)+'"'
+        + (S.combSel.has(p.id) ? ' class="active"' : '') + '>'
+        + esc(p.rotulo) + '</button>').join("")
+    + '</div><div class="cs"></div>'
+    + '<span style="font-size:12px;color:var(--text-muted);padding-left:8px">'
+    + 'vale para os indicadores por litro, abaixo da régua — o DRE em R$ não muda'
+    + '</span>';
+  el.querySelectorAll("button[data-comb]").forEach(b=>b.onclick=()=>{
+    const id = b.dataset.comb;
+    if(S.combSel.has(id)){
+      // sem nenhum marcado nao existe denominador: o ultimo nao desmarca
+      if(S.combSel.size === 1) return;
+      S.combSel.delete(id);
+    } else S.combSel.add(id);
+    try { localStorage.setItem("dre-comb", JSON.stringify([...S.combSel])); } catch(e){}
+    renderComb(); renderDre();
+  });
+}
+
+/* O botao "Atualizar agora" fala com o Worker, nao direto com o GitHub: o
+   token do GitHub nao pode viver dentro deste arquivo, que e publico. */
+async function apiWorker(caminho, opc={}){
+  const r = await fetch(caminho, {...opc, headers:{
+    Authorization: "Bearer " + (S.sessao?.access_token || ""),
+    ...(opc.headers||{})}});
+  const txt = await r.text();
+  let d = null;
+  try { d = txt ? JSON.parse(txt) : null; }
+  catch(e){
+    // fora do endereco da Cloudflare (espelho no GitHub Pages, teste local)
+    // nao existe /api/*: o servidor devolve a propria pagina, que nao e JSON
+    throw new Error("este botão só funciona no endereço principal do DRE");
+  }
+  if(!r.ok) throw new Error(d?.erro || ("HTTP " + r.status));
+  return d;
+}
+
+let acompanhando = null;
+function acompanhar(bt, st){
+  const estado = document.getElementById("a-estado");
+  const antes = S.carga?.quando || "";
+  bt.disabled = true;
+  const liga = txt => { if(estado) estado.innerHTML = txt; };
+  liga('rodada em curso' + (st?.url ? ' — <a href="'+st.url+'" target="_blank" '
+       + 'rel="noopener">acompanhar no GitHub</a>' : "") + "...");
+  clearInterval(acompanhando);
+  const t0 = Date.now();
+  acompanhando = setInterval(async ()=>{
+    // teto de 20 min: se passar disso, algo travou e insistir nao ajuda
+    if(Date.now()-t0 > 20*60*1000){
+      clearInterval(acompanhando); bt.disabled = false;
+      liga("a rodada demorou mais que o esperado — veja no GitHub");
+      return;
+    }
+    let s; try { s = await apiWorker("/api/status"); } catch(e){ return; }
+    if(s.estado !== "completed") return;
+    clearInterval(acompanhando);
+    if(s.resultado !== "success"){
+      bt.disabled = false;
+      liga('a rodada falhou' + (s.url ? ' — <a href="'+s.url+'" target="_blank" '
+           + 'rel="noopener">ver o erro</a>' : ""));
+      return;
+    }
+    liga("rodada concluída, recarregando os valores...");
+    try { await carregar(); } catch(e){}
+    // renderAtu redesenha a aba inteira, botao incluso
+    renderAtu();
+    const novo = document.getElementById("a-estado");
+    if(novo) novo.textContent = (S.carga?.quando && S.carga.quando !== antes)
+      ? "✓ atualizado agora" : "✓ rodada concluída";
+  }, 10000);
+}
+
+async function dispararAtualizacao(bt){
+  const estado = document.getElementById("a-estado");
+  bt.disabled = true;
+  if(estado) estado.textContent = "pedindo a rodada...";
+  try{
+    const r = await apiWorker("/api/atualizar", {method:"POST"});
+    acompanhar(bt, r);
+    if(r.jaRodava && estado)
+      estado.textContent = "já havia uma rodada em curso — acompanhando essa";
+  }catch(err){
+    bt.disabled = false;
+    if(estado) estado.textContent = "não consegui: " + (err.message||err);
+  }
 }
 
 /* ===================== modal / navegação ===================== */
