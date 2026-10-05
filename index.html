@@ -615,20 +615,38 @@ const PE = {
   182: vc => { const p = vc(3) ? vc(6)/vc(3) : 0, b = PE[180](vc);
                return (p && b!==null) ? b*0.95/p : null; }
 };
-/* Analitico da regua de litros: 3001 faturamento, 3002 faturamento liquido,
-   3003 CMV, 3004 margem de contribuicao -- todos por litro de combustivel.
-   A linha de origem vem na estrutura (config.de), entao mudar a conta do DRE
-   nao exige mexer aqui. */
+/* Analitico da regua de litros. Dividir o DRE inteiro por litro de
+   combustivel misturaria o faturamento da loja com o volume da bomba, entao
+   cada indicador soma duas partes:
+
+     exato  -- as linhas que o DRE ja separa em "1. Combustivel"
+     rateio -- o que nao da para separar entra pela fatia do combustivel no
+               faturamento (linha 6 sobre linha 4)
+
+   Cada par de `rateio` e [total do bloco, parte ja contada no exato]: o que
+   sobra e que leva o rateio, para nada entrar duas vezes. A montagem vem da
+   estrutura, entao mudar a conta do DRE nao exige mexer aqui. */
+const LINHA_FAT_COMB = 6;
 let S_POR_LITRO = {};
 function registrarPorLitro(){
   S_POR_LITRO = {};
   (S.estrutura||[]).forEach(i=>{
     if(!i.config?.por_litro) return;
-    const de = i.config.de;
+    const exato = i.config.exato || [], rateio = i.config.rateio || [];
     S_POR_LITRO[i.linha] = true;
-    PE[i.linha] = vc => { const l = vc(3); return l ? vc(de)/l : null; };
+    PE[i.linha] = vc => {
+      const litros = vc(3);
+      if(!litros) return null;
+      const rob = vc(LINHA_BASE);
+      const fatia = rob ? vc(LINHA_FAT_COMB)/rob : 0;
+      let soma = 0;
+      exato.forEach(n => soma += vc(n));
+      rateio.forEach(([total, jaContado]) => soma += (vc(total) - vc(jaContado)) * fatia);
+      return soma / litros;
+    };
   });
 }
+
 function valorColBase(calc, linha, col){
   const vs = col.meses.map(m=>calc[m]?.[linha]).filter(v=>v!==null&&v!==undefined&&!isNaN(v));
   if(!vs.length) return null;
