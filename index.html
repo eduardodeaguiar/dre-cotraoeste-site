@@ -794,7 +794,37 @@ function linhasPP(pais){
   return out;
 }
 
+/* Trocar o innerHTML da tabela zera a rolagem, e ligar o AV mandava a tela de
+   volta para janeiro. Guardamos a coluna encostada na esquerda e voltamos para
+   ela -- pelo ROTULO, nao pela posicao em pixels: ligar o AV alarga todas as
+   colunas, entao o mesmo pixel cai num mes diferente. */
+function ancoraRolagem(){
+  const q = document.querySelector(".quadro");
+  if(!q) return null;
+  const conta = document.querySelector("#t-dre thead tr:first-child th:first-child");
+  const base = conta ? conta.offsetWidth : 0;
+  const alvo = [...document.querySelectorAll("#t-dre thead tr:first-child th.ini")]
+    .find(th => th.offsetLeft - base >= q.scrollLeft - 2);
+  return {rotulo: alvo ? alvo.textContent.trim() : null,
+          topo: q.scrollTop, rolada: q.scrollLeft > 2};
+}
+function voltarRolagem(a){
+  const q = document.querySelector(".quadro");
+  if(!q || !a) return;
+  q.scrollTop = a.topo;
+  if(!a.rolada || !a.rotulo) return;
+  const conta = document.querySelector("#t-dre thead tr:first-child th:first-child");
+  const base = conta ? conta.offsetWidth : 0;
+  const alvo = [...document.querySelectorAll("#t-dre thead tr:first-child th.ini")]
+    .find(th => th.textContent.trim() === a.rotulo);
+  // Rotulo que sumiu (trocou de Mes para Trimestre): o eixo inteiro mudou e
+  // nao ha para onde voltar. Zerar de proposito, em vez de deixar onde o
+  // navegador largou, que cairia num trimestre qualquer.
+  q.scrollLeft = alvo ? alvo.offsetLeft - base : 0;
+}
+
 function renderDre(){
+  const anc = ancoraRolagem();
   renderComb();
   const ms = mesesVisiveis();
   const calc = {}; ms.forEach(m=>calc[m]=calcular(m));
@@ -948,7 +978,11 @@ function renderDre(){
     // a ROB encosta no fim do cabecalho inteiro, nao na soma das partes
     st.setProperty("--t4", Math.round(t.tHead.getBoundingClientRect().height)+"px");
   };
-  requestAnimationFrame(()=>{ medir(); requestAnimationFrame(medir); });
+  // a rolagem so volta depois de medir: a largura das colunas muda com o AV
+  requestAnimationFrame(()=>{
+    medir(); voltarRolagem(anc);
+    requestAnimationFrame(()=>{ medir(); voltarRolagem(anc); });
+  });
 
   document.querySelectorAll(".caret[data-ln]").forEach(c=>c.onclick=e=>{
     const ln = +e.target.dataset.ln;
