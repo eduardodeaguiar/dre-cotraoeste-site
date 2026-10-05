@@ -782,6 +782,9 @@ function linhasPP(pais){
   const alvo = new Set(S.estrutura
     .filter(i=>BLOCOS_PP.some(b=>String(i.rotulo||"").toUpperCase().includes(b)))
     .map(i=>i.linha));
+  // linhas que pedem pontos percentuais por conta propria, sem descer de um
+  // dos blocos: os indicadores por litro que sao peso sobre o faturamento
+  S.estrutura.forEach(i=>{ if(i.config?.ah_pp) alvo.add(i.linha); });
   const out = new Set(alvo);
   S.estrutura.forEach(i=>{
     let p = pais[i.linha];
