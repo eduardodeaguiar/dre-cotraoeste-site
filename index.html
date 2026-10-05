@@ -878,22 +878,22 @@ function renderDre(){
     const soAnalitico = (filhos[it.linha]||[]).map(f=>f.linha);
     const meusFilhos = ehResultado(it) ? soAnalitico
                      : [...(it.config?.parcelas||[]), ...soAnalitico];
-    /* A flecha diz UMA coisa: tem filho na tela ou nao. Antes ela perguntava
-       se ALGUM filho estava escondido, e uma linha com filhos de niveis
-       diferentes -- parte visivel, parte nao -- aparecia fechada com a lista
-       aberta logo abaixo. Dai o clique duplo: o primeiro so acertava a flecha.
+    /* A flecha diz UMA coisa: tem filho na tela ou nao. E a unica forma de
+       nao mentir e perguntar exatamente o que o laco de montagem pergunta --
+       qualquer regra paralela acaba divergindo dele. Ja divergiu duas vezes:
+       primeiro ignorando que os filhos podem ser de niveis diferentes, depois
+       ignorando o abertoAcima (abrir o avo na mao poe o neto na tela, e a
+       linha do meio continuava se achando fechada).
        O verde continua querendo dizer "tem mais coisa aqui dentro". */
+    const naTela = fi => !recolhidoAcima(fi.linha) &&
+                         ((fi.nivel||0) <= nivelMax || abertoAcima(fi.linha));
     const infoFilhos = meusFilhos
       .map(f=>S.estrutura.find(x=>x.linha===f)).filter(Boolean);
-    const escondidos = infoFilhos.filter(fi=>(fi.nivel||0) > nivelMax).length;
-    const temEscondido = escondidos > 0;
-    const aberto = S.abertos.has(it.linha);
+    const visiveis = infoFilhos.filter(naTela).length;
     let caret = '<span class="caret"></span>';
     if(meusFilhos.length){
-      const nenhumNaTela = S.colapsados.has(it.linha) ||
-                           (escondidos === infoFilhos.length && !aberto);
-      caret = '<span class="caret'+(temEscondido && !aberto ? " mais" : "")+
-              '" data-ln="'+it.linha+'">'+(nenhumNaTela?"▸":"▾")+'</span>';
+      caret = '<span class="caret'+(visiveis < infoFilhos.length ? " mais" : "")+
+              '" data-ln="'+it.linha+'">'+(visiveis ? "▾" : "▸")+'</span>';
     }
     const aj = it.config?.ajuda ? ' title="'+it.config.ajuda.replace(/"/g,"&quot;")+'"' : '';
     const recuo = it.config?.recuo ?? niv;
