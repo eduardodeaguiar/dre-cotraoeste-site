@@ -717,6 +717,12 @@ function valorCol(calc, linha, col){
   if(PE[linha]) return PE[linha](n=>valorColBase(calc,n,col) || 0, col);
   return valorColBase(calc, linha, col);
 }
+/* Abaixo deste valor a linha e ruido: nao vale calcular porcentagem sobre
+   ela. Meio real serve para o DRE em reais; num indicador por litro a margem
+   e a deducao INTEIRAS vivem abaixo disso, e o piso dos reais apagava as duas
+   colunas de analise justamente nas linhas mais interessantes. */
+const pisoDe = linha => S_POR_LITRO[linha] ? 0.0005 : 0.5;
+
 function av(calc, linha, col){
   // numa linha por litro a base e o faturamento por litro (3001): assim o AV
   // do CMV/L da exatamente o CMV sobre a receita, igual ao da linha em reais
@@ -740,11 +746,7 @@ function ah(calc, linha, cols, i, emPP){
     return [fmtPP(d), Math.abs(d)<0.00005 ? "" : (d>0?"sobe":"desce")];
   }
   const base = valorCol(calc,linha,ant), atual = valorCol(calc,linha,cols[i]);
-  // Piso para nao calcular variacao sobre quase-zero. Em reais, meio real; num
-  // indicador por litro a margem inteira vive abaixo disso -- com o piso dos
-  // reais, a variacao da margem por litro simplesmente nao aparecia.
-  const piso = S_POR_LITRO[linha] ? 0.0005 : 0.5;
-  if(base===null || atual===null || Math.abs(base)<piso) return ["",""];
+  if(base===null || atual===null || Math.abs(base)<pisoDe(linha)) return ["",""];
   const h = atual/base - 1;
   return [fmtVar(h), Math.abs(h)<0.00005 ? "" : ((h>0)===(base>0) ? "sobe":"desce")];
 }
@@ -912,7 +914,7 @@ function renderDre(){
             nt.map(x=>x.texto.replace(/"/g,"&quot;")).join(" | ")+'">●</span>':'')+'</td>';
       h += td;
       if(S.av) h += '<td class="col-av'+cm+'">'
-        + (it.config?.sem_av || v===null || Math.abs(v)<0.5
+        + (it.config?.sem_av || v===null || Math.abs(v)<pisoDe(it.linha)
            ? "" : fmtPct(av(calc,it.linha,c))) + '</td>';
       if(S.ah){
         const [t,cor] = ah(calc, it.linha, cols, ci, pp.has(it.linha));
