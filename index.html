@@ -86,6 +86,8 @@ select,input[type=text],input[type=password],input[type=email],textarea{
 .cs{width:1px;align-self:stretch;background:var(--border);margin:2px 0}
 
 /* ---------- tabela ---------- */
+#aviso-dados{background:#FDECEA;border:1px solid var(--red);color:#7A2318;
+  border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px}
 .quadro{background:var(--surface);border:1px solid var(--border);border-radius:10px;
   overflow:auto;max-height:calc(100vh - 210px)}
 table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
@@ -361,6 +363,7 @@ table.sim input:focus{outline:2px solid var(--green);outline-offset:-1px}
       <div class="cs"></div>
       <span id="dica" style="font-size:12px;color:var(--text-muted);padding-left:8px"></span>
     </div>
+    <div id="aviso-dados" class="oculto"></div>
     <div class="quadro"><table id="t-dre"></table></div>
   </section>
 
@@ -438,6 +441,32 @@ async function sb(caminho, opc={}){
   return t ? JSON.parse(t) : null;
 }
 
+/* O PostgREST corta a resposta em 1000 linhas, por configuracao do servidor,
+   e ignora qualquer `limit` maior. Funcionou enquanto o fato tinha 1012
+   linhas; quando passou de 1000 o app perdeu 213 EM SILENCIO -- o custo fixo
+   de agosto em diante simplesmente nao chegava, e setembro aparecia zerado.
+   Agora busca em paginas ate a resposta vir curta. A ordem explicita e
+   obrigatoria: sem ela o banco nao garante que a pagina 2 continue de onde a
+   1 parou, e linha some ou vem repetida. */
+async function sbPaginado(tabela, filtro, ordem, tam=1000){
+  const todo = [];
+  for(let de = 0; ; de += tam){
+    let pag;
+    try{
+      pag = await sb(`${tabela}?${filtro}&select=*&order=${ordem}`,
+                     {headers:{"Range-Unit":"items", Range:`${de}-${de+tam-1}`}});
+    }catch(e){
+      // faixa alem do fim responde 416; se ja veio alguma coisa, acabou
+      if(de > 0) break;
+      throw e;
+    }
+    if(!pag?.length) break;
+    todo.push(...pag);
+    if(pag.length < tam) break;
+  }
+  return todo;
+}
+
 async function entrar(email, senha){
   const r = await fetch(CONFIG.URL+"/auth/v1/token?grant_type=password",{
     method:"POST", headers:{apikey:CONFIG.KEY,"Content-Type":"application/json"},
@@ -453,7 +482,7 @@ async function carregar(){
   const p = "projeto=eq."+CONFIG.PROJETO;
   const [est, fat, edi, not, con, car] = await Promise.all([
     sb("dre_estrutura?"+p+"&select=*&order=linha"),
-    sb("dre_fato?"+p+"&select=*"),
+    sbPaginado("dre_fato", p, "chave.asc,mes.asc"),
     sb("dre_edicoes?"+p+"&select=*"),
     sb("dre_notas?"+p+"&select=*&order=quando.desc"),
     sb("dre_contas?"+p+"&select=*&order=conta"),
@@ -472,6 +501,14 @@ async function carregar(){
   S.edicoes = {};
   for(const e of edi){ S.edicoes[e.linha+"|"+e.mes] = e; }
   S.notas = not; S.contas = con; S.carga = car?.[0] || null;
+  // O publicar.py grava quantas linhas mandou. Conferir contra o que chegou e
+  // o unico jeito de um corte silencioso dar as caras -- foi assim que 213
+  // linhas sumiram sem ninguem perceber.
+  S.fatoIncompleto = (S.carga?.linhas && fat.length !== S.carga.linhas)
+    ? {recebeu: fat.length, esperado: S.carga.linhas} : null;
+  if(S.fatoIncompleto)
+    console.error("DRE: recebi", fat.length, "linhas de fato, mas a carga diz",
+                  S.carga.linhas);
   S.meses = [...new Set(fat.map(f=>f.mes))].sort();
   S.de = S.de || S.meses[0];
   S.ate = S.ate || S.meses[S.meses.length-1];
@@ -826,6 +863,19 @@ function voltarRolagem(a){
 function renderDre(){
   const anc = ancoraRolagem();
   renderComb();
+  // Dado incompleto nao pode passar por dado: o DRE parece certo, so com
+  // numeros menores, e e exatamente isso que ninguem percebe.
+  // NAO chamar de `av`: existe uma funcao av() que calcula a coluna de
+  // analise vertical, e a variavel a cobriria dentro desta funcao inteira
+  const elAviso = document.getElementById("aviso-dados");
+  if(elAviso){
+    elAviso.classList.toggle("oculto", !S.fatoIncompleto);
+    if(S.fatoIncompleto)
+      elAviso.innerHTML = "<b>Os números abaixo estão incompletos.</b> Chegaram "
+        + S.fatoIncompleto.recebeu + " linhas de dados, mas a última carga "
+        + "publicou " + S.fatoIncompleto.esperado + ". Avise quem cuida do "
+        + "sistema antes de usar estes valores.";
+  }
   const ms = mesesVisiveis();
   const calc = {}; ms.forEach(m=>calc[m]=calcular(m));
   const cols = montarColunas(ms);
