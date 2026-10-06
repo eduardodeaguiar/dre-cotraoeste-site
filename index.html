@@ -441,7 +441,8 @@ const S = {
   meses:[], de:null, ate:null, colapsados:new Set(), abertos:new Set(),
   nivel:0, periodo:'Mês', media:'Nenhuma', av:0, ah:0,
   produtos:[], combSel:new Set(),
-  prd:null, mcDe:null, mcAte:null, mcAbertas:new Set(), mcOrdem:'desc'
+  prd:null, mcDe:null, mcAte:null, mcAbertas:new Set(), mcOrdem:'desc',
+  mcCalor:false
 };
 
 const fmt = n => (n===null||n===undefined||isNaN(n)) ? "" :
@@ -1991,12 +1992,17 @@ function apurarMC(ms){
    continua na coluna Marg/Fat, ao lado: as duas informacoes se completam em
    vez de competir.
 
-   Divergente azul<->vermelho, nao verde<->vermelho: esse par e indistinguivel
-   para quem tem daltonismo, que e o erro classico de planilha financeira.
-   O valor exato vai no titulo de cada celula. */
-const HEAT_ABAIXO = ["#f3b0b0", "#d03b3b", "#8c1d1d"];   // pior que o normal
-const HEAT_ACIMA  = ["#9ec5f4", "#3987e5", "#184f95"];   // melhor que o normal
-const HEAT_NEUTRO = "#f0efec";
+   Vermelho -> amarelo -> verde, que e como se le "ruim para bom" sem precisar
+   de legenda. Esse par costuma ser o erro classico de planilha financeira,
+   porque vermelho e verde se confundem para quem tem daltonismo -- aqui ele
+   funciona porque os polos tem LUMINOSIDADE bem diferente: o vermelho e
+   escuro e o verde e claro. Medido com o validador: dE 27,6 sob deuteranopia
+   e 39,1 na visao normal, contra um alvo de 8. Os dois bracos tambem passam
+   em monotonicidade e espacamento.
+   O valor exato vai no titulo de cada celula, de todo jeito. */
+const HEAT_ABAIXO = ["#ef9a7f", "#c0392b", "#7a1414"];   // pior que a media
+const HEAT_ACIMA  = ["#b9e3a0", "#6cd07d", "#2fae55"];   // melhor que a media
+const HEAT_NEUTRO = "#f7e49a";                           // na media
 const HEAT_FAIXA  = 0.06;   // +-6 pontos percentuais satura a escala
 
 function corDesvio(d){
@@ -2032,6 +2038,8 @@ function renderMC(){
     + '<select id="mc-ate">'+opc(S.mcAte)+'</select></div>'
     + '<div class="cs"></div><div class="cg"><span class="cl">Produtos</span>'
     + '<button id="mc-ord"></button><button id="mc-todas"></button></div>'
+    + '<div class="cs"></div><div class="cg"><span class="cl">Comparar</span>'
+    + '<button id="mc-calor"></button></div>'
     + '<div class="cs"></div><span id="mc-nota" style="font-size:12px;'
     + 'color:var(--text-muted);padding-left:8px"></span>';
   const liga = (id, campo) => document.getElementById(id).onchange = e => {
@@ -2057,6 +2065,13 @@ function renderMC(){
     renderMC();
   };
 
+  const bCalor = document.getElementById("mc-calor");
+  bCalor.textContent = "mês a mês";
+  bCalor.classList.toggle("active", !!S.mcCalor);
+  bCalor.title = "pinta cada mês conforme ele foi melhor ou pior que a média "
+               + "da própria linha";
+  bCalor.onclick = () => { S.mcCalor = !S.mcCalor; renderMC(); };
+
   if(!S.prd){
     corpo.innerHTML = '<div class="vazio">carregando os produtos...</div>';
     carregarProdutos().then(renderMC).catch(e =>
@@ -2075,8 +2090,10 @@ function renderMC(){
     : "dados de " + rotMes(ms[0]);
 
   const ap = apurarMC(ms), tot = ap.tot;
-  // com um mes so nao ha o que comparar: a faixa viraria uma coluna unica
-  const mostrarCalor = ms.length > 1;
+  // Opcao, desligada por padrao: a tabela de numeros e o que quase todo mundo
+  // vem ver, e a faixa de cor so faz sentido quando a pergunta e sobre tempo.
+  // Com um mes so nao ha o que comparar -- viraria uma coluna unica.
+  const mostrarCalor = S.mcCalor && ms.length > 1;
   const pct = (v, base) => base ? fmtPct(v/base) : "";
   const neg = v => v < 0 ? ' class="neg"' : "";
   const linha = (o, rot, nivel, temFilhos, aberta) => {
