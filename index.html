@@ -318,6 +318,7 @@ table.sim input:focus{outline:2px solid var(--green);outline-offset:-1px}
 
 <nav>
   <button data-v="dre" class="on">Demonstrativo</button>
+  <button data-v="mc">Margem de contribuição</button>
   <button data-v="notas">Notas explicativas</button>
   <button data-v="contas">Gerenciamento de contas</button>
   <button data-v="fonte">Fonte de dados</button>
@@ -365,6 +366,11 @@ table.sim input:focus{outline:2px solid var(--green);outline-offset:-1px}
     </div>
     <div id="aviso-dados" class="oculto"></div>
     <div class="quadro"><table id="t-dre"></table></div>
+  </section>
+
+  <section id="v-mc" class="view">
+    <div class="ctl" id="mc-ctl"></div>
+    <div id="mc-corpo"></div>
   </section>
 
   <section id="v-notas" class="view">
@@ -417,7 +423,8 @@ const S = {
   estrutura:[], fato:{}, edicoes:{}, notas:[], contas:[], carga:null,
   meses:[], de:null, ate:null, colapsados:new Set(), abertos:new Set(),
   nivel:0, periodo:'Mês', media:'Nenhuma', av:0, ah:0,
-  produtos:[], combSel:new Set()
+  produtos:[], combSel:new Set(),
+  prd:null, mcDe:null, mcAte:null, mcAbertas:new Set()
 };
 
 const fmt = n => (n===null||n===undefined||isNaN(n)) ? "" :
@@ -467,6 +474,20 @@ async function sbPaginado(tabela, filtro, ordem, tam=1000){
   return todo;
 }
 
+/* Quantas linhas o banco tem para este filtro. Pede uma linha so e le a
+   contagem do cabecalho, entao custa quase nada. */
+async function sbContagem(tabela, filtro){
+  try{
+    const r = await fetch(`${CONFIG.URL}/rest/v1/${tabela}?${filtro}&select=mes`, {
+      headers:{apikey:CONFIG.KEY,
+               Authorization:"Bearer "+(S.sessao?.access_token || CONFIG.KEY),
+               Prefer:"count=exact", "Range-Unit":"items", Range:"0-0"}});
+    const cr = r.headers.get("content-range") || "";
+    const n = parseInt(cr.split("/")[1], 10);
+    return isNaN(n) ? null : n;
+  }catch(e){ return null; }
+}
+
 async function entrar(email, senha){
   const r = await fetch(CONFIG.URL+"/auth/v1/token?grant_type=password",{
     method:"POST", headers:{apikey:CONFIG.KEY,"Content-Type":"application/json"},
@@ -482,7 +503,9 @@ async function carregar(){
   const p = "projeto=eq."+CONFIG.PROJETO;
   const [est, fat, edi, not, con, car] = await Promise.all([
     sb("dre_estrutura?"+p+"&select=*&order=linha"),
-    sbPaginado("dre_fato", p, "chave.asc,mes.asc"),
+    // prd:* fica de fora: sao 6 mil linhas que so a aba de margem usa,
+    // e carregadas so quando ela e aberta
+    sbPaginado("dre_fato", p+"&chave=not.like.prd:*", "chave.asc,mes.asc"),
     sb("dre_edicoes?"+p+"&select=*"),
     sb("dre_notas?"+p+"&select=*&order=quando.desc"),
     sb("dre_contas?"+p+"&select=*&order=conta"),
@@ -501,14 +524,15 @@ async function carregar(){
   S.edicoes = {};
   for(const e of edi){ S.edicoes[e.linha+"|"+e.mes] = e; }
   S.notas = not; S.contas = con; S.carga = car?.[0] || null;
-  // O publicar.py grava quantas linhas mandou. Conferir contra o que chegou e
-  // o unico jeito de um corte silencioso dar as caras -- foi assim que 213
-  // linhas sumiram sem ninguem perceber.
-  S.fatoIncompleto = (S.carga?.linhas && fat.length !== S.carga.linhas)
-    ? {recebeu: fat.length, esperado: S.carga.linhas} : null;
+  // Conferir o que chegou contra o que o servidor diz existir e o unico jeito
+  // de um corte silencioso dar as caras -- ja sumiram 213 linhas sem ninguem
+  // perceber. A contagem usa o MESMO filtro da busca, senao compararia coisas
+  // diferentes.
+  const esperado = await sbContagem("dre_fato", p+"&chave=not.like.prd:*");
+  S.fatoIncompleto = (esperado !== null && fat.length !== esperado)
+    ? {recebeu: fat.length, esperado} : null;
   if(S.fatoIncompleto)
-    console.error("DRE: recebi", fat.length, "linhas de fato, mas a carga diz",
-                  S.carga.linhas);
+    console.error("DRE: recebi", fat.length, "linhas de fato, mas o banco tem", esperado);
   S.meses = [...new Set(fat.map(f=>f.mes))].sort();
   S.de = S.de || S.meses[0];
   S.ate = S.ate || S.meses[S.meses.length-1];
@@ -1817,6 +1841,195 @@ async function dispararAtualizacao(bt){
   }
 }
 
+/* ============ aba: analise de margem de contribuicao ============
+
+   Responde onde a margem nasce, que o DRE em reais nao mostra: combustivel e
+   ~95% do faturamento mas ~88% da margem, porque a loja rende quase tres
+   vezes mais por real vendido.
+
+   Tres cuidados que a conta exige:
+   - o consumo interno da propria Cotraoeste ja saiu na origem (as chaves prd:
+     vem da mesma base do DRE, sem ele);
+   - o que tem registro proprio entra exato: faturamento, desconto e CMV de
+     cada produto;
+   - o que nao tem dono -- impostos, taxa de cartao, fretes, deslocamento e
+     comissoes -- e rateado pela fatia de cada um no faturamento.
+*/
+async function carregarProdutos(){
+  if(S.prd) return;
+  const filtro = "projeto=eq."+CONFIG.PROJETO+"&chave=like.prd:*";
+  const linhas = await sbPaginado("dre_fato", filtro, "chave.asc,mes.asc");
+  const esperado = await sbContagem("dre_fato", filtro);
+  S.prdIncompleto = (esperado !== null && linhas.length !== esperado)
+    ? {recebeu: linhas.length, esperado} : null;
+  const out = {};
+  for(const l of linhas){
+    const i1 = l.chave.indexOf(":"), i2 = l.chave.indexOf(":", i1+1);
+    const medida = l.chave.slice(i1+1, i2), cp = l.chave.slice(i2+1);
+    const barra = cp.indexOf("|");
+    const cat = cp.slice(0, barra), prod = cp.slice(barra+1);
+    const it = (out[cp] = out[cp] || {cat, prod, meses:{}});
+    const mm = (it.meses[l.mes] = it.meses[l.mes] || {});
+    mm[medida] = (mm[medida] || 0) + (+l.valor);
+  }
+  S.prd = out;
+}
+
+function mesesMC(){
+  if(!S.meses || !S.meses.length) return [];
+  const de = S.mcDe || S.meses[0], ate = S.mcAte || S.meses[S.meses.length-1];
+  return S.meses.filter(m => m >= de && m <= ate);
+}
+
+/* O que nao pertence a produto nenhum, somado no periodo. Mesma definicao do
+   analitico por litro: deducoes menos o grupo de desconto, mais o custo
+   variavel menos as tres linhas de CMV. */
+function baseRateio(ms){
+  let rob = 0, rateavel = 0;
+  for(const m of ms){
+    const c = calcular(m), v = ln => c[ln] || 0;
+    rob += v(4);
+    rateavel += (v(10) - v(14)) + (v(24) - v(26) - v(27) - v(28));
+  }
+  return {rob, rateavel};
+}
+
+function apurarMC(ms){
+  const base = baseRateio(ms);
+  const itens = [];
+  for(const chave in S.prd){
+    const it = S.prd[chave];
+    let qtd = 0, bruto = 0, desconto = 0, custo = 0, teve = false;
+    for(const m of ms){
+      const mm = it.meses[m]; if(!mm) continue;
+      teve = true;
+      qtd += mm.qtd || 0; bruto += mm.bruto || 0;
+      desconto += mm.desconto || 0; custo += mm.custo || 0;
+    }
+    if(!teve) continue;
+    // desconto e custo vem POSITIVOS do fato; no DRE entram com sinal -1
+    const rateio = base.rob ? base.rateavel * (bruto / base.rob) : 0;
+    itens.push({cat: it.cat, prod: it.prod, qtd, bruto,
+                desconto: -desconto, custo: -custo, rateio,
+                margem: bruto - desconto - custo + rateio});
+  }
+  const cats = {};
+  for(const i of itens){
+    const c = (cats[i.cat] = cats[i.cat] || {cat:i.cat, prod:i.cat, qtd:0,
+      bruto:0, desconto:0, custo:0, rateio:0, margem:0, filhos:[]});
+    ["qtd","bruto","desconto","custo","rateio","margem"].forEach(k => c[k] += i[k]);
+    c.filhos.push(i);
+  }
+  const lista = Object.values(cats).sort((a,b) => b.margem - a.margem);
+  lista.forEach(c => c.filhos.sort((a,b) => b.margem - a.margem));
+  const tot = {bruto:0, margem:0, qtd:0};
+  lista.forEach(c => { tot.bruto += c.bruto; tot.margem += c.margem; });
+  return {lista, tot};
+}
+
+function renderMC(){
+  const ctl = document.getElementById("mc-ctl");
+  const corpo = document.getElementById("mc-corpo");
+  if(!ctl || !corpo) return;
+  if(!S.meses || !S.meses.length){
+    corpo.innerHTML = '<div class="vazio">Sem dados.</div>'; return;
+  }
+  S.mcDe = S.mcDe || S.meses[0];
+  S.mcAte = S.mcAte || S.meses[S.meses.length-1];
+
+  const opc = sel => S.meses.map(m =>
+    '<option value="'+m+'"'+(m===sel?" selected":"")+'>'+rotMes(m)+'</option>').join("");
+  ctl.innerHTML = '<div class="cg"><span class="cl">Período</span>'
+    + '<select id="mc-de">'+opc(S.mcDe)+'</select>'
+    + '<span style="color:var(--text-muted)">até</span>'
+    + '<select id="mc-ate">'+opc(S.mcAte)+'</select></div>'
+    + '<div class="cs"></div><span id="mc-nota" style="font-size:12px;'
+    + 'color:var(--text-muted);padding-left:8px"></span>';
+  const liga = (id, campo) => document.getElementById(id).onchange = e => {
+    S[campo] = e.target.value;
+    if(S.mcDe > S.mcAte){ const x = S.mcDe; S.mcDe = S.mcAte; S.mcAte = x; }
+    renderMC();
+  };
+  liga("mc-de", "mcDe"); liga("mc-ate", "mcAte");
+
+  if(!S.prd){
+    corpo.innerHTML = '<div class="vazio">carregando os produtos...</div>';
+    carregarProdutos().then(renderMC).catch(e =>
+      corpo.innerHTML = '<div class="vazio">não consegui carregar: '
+                        + (e.message||e) + '</div>');
+    return;
+  }
+
+  const ms = mesesMC();
+  const n = ms.length || 1;
+  // Mais de um mes vira MEDIA MENSAL: somar o periodo faria um semestre
+  // parecer o dobro de um trimestre, e o que se compara aqui e intensidade.
+  const d = v => v / n;
+  document.getElementById("mc-nota").textContent = n > 1
+    ? "média mensal de " + n + " meses (" + rotMes(ms[0]) + " a " + rotMes(ms[n-1]) + ")"
+    : "dados de " + rotMes(ms[0]);
+
+  const ap = apurarMC(ms), tot = ap.tot;
+  const pct = (v, base) => base ? fmtPct(v/base) : "";
+  const neg = v => v < 0 ? ' class="neg"' : "";
+  const linha = (o, rot, nivel, temFilhos, aberta) => {
+    const caret = temFilhos
+      ? '<span class="caret'+(aberta?"":" mais")+'" data-mc="'+o.cat+'">'
+        + (aberta?"▾":"▸") + '</span>'
+      : '<span class="caret"></span>';
+    return '<tr class="'+(nivel===0?"n1":"det")+'">'
+      + '<td style="padding-left:'+(10+nivel*18)+'px">'+caret
+      + '<span class="rot">'+rot+'</span></td>'
+      + '<td>'+fmt(d(o.qtd))+'</td>'
+      + '<td>'+fmt(d(o.bruto))+'</td><td class="col-av">'+pct(o.bruto, tot.bruto)+'</td>'
+      + '<td'+neg(o.desconto)+'>'+fmt(d(o.desconto))+'</td>'
+      + '<td'+neg(o.custo)+'>'+fmt(d(o.custo))+'</td>'
+      + '<td'+neg(o.rateio)+'>'+fmt(d(o.rateio))+'</td>'
+      + '<td'+neg(o.margem)+'><b>'+fmt(d(o.margem))+'</b></td>'
+      + '<td class="col-av">'+pct(o.margem, tot.margem)+'</td>'
+      + '<td class="col-av"><b>'+(o.bruto?fmtPct(o.margem/o.bruto):"")+'</b></td>'
+      + '<td>'+(o.qtd?fmt4(o.margem/o.qtd):"")+'</td></tr>';
+  };
+
+  let h = '<div class="quadro"><table id="t-mc"><thead><tr>'
+    + '<th>Categoria / produto</th><th>Qtd</th><th>Faturamento</th><th>% fat</th>'
+    + '<th>Desconto</th><th>CMV</th><th>Rateio</th><th>Margem</th>'
+    + '<th>% marg</th><th>Marg/Fat</th><th>Marg/un</th></tr></thead><tbody>';
+  for(const c of ap.lista){
+    const aberta = S.mcAbertas.has(c.cat);
+    h += linha(c, c.cat, 0, c.filhos.length > 1, aberta);
+    if(aberta) for(const f of c.filhos) h += linha(f, f.prod, 1, false, false);
+  }
+  h += '<tr class="kpi"><td><span class="caret"></span><span class="rot">TOTAL</span></td>'
+    + '<td></td><td>'+fmt(d(tot.bruto))+'</td><td class="col-av">100,0%</td>'
+    + '<td></td><td></td><td></td><td><b>'+fmt(d(tot.margem))+'</b></td>'
+    + '<td class="col-av">100,0%</td>'
+    + '<td class="col-av"><b>'+(tot.bruto?fmtPct(tot.margem/tot.bruto):"")+'</b></td>'
+    + '<td></td></tr></tbody></table></div>';
+
+  if(S.prdIncompleto)
+    h = '<div id="aviso-dados">Os produtos vieram incompletos ('
+      + S.prdIncompleto.recebeu + ' de ' + S.prdIncompleto.esperado
+      + ' linhas). Não use estes números.</div>' + h;
+
+  h += '<div class="aviso" style="margin-top:12px">'
+    + '<b>Como a margem é montada.</b> O consumo interno da própria Cotraoeste '
+    + 'já saiu na origem. Faturamento, desconto e CMV são de cada produto, com '
+    + 'registro próprio. O <i>rateio</i> é o que não tem dono — impostos, taxa '
+    + 'de cartão, fretes, deslocamento de produtos e comissões — dividido pela '
+    + 'fatia de cada um no faturamento.'
+    + '<div style="margin-top:7px">Cada categoria abre nos produtos que '
+    + 'respondem por 90% do seu faturamento; o resto vem somado em '
+    + '<i>Outros</i>, para o total continuar exato.</div></div>';
+  corpo.innerHTML = h;
+
+  corpo.querySelectorAll(".caret[data-mc]").forEach(c => c.onclick = () => {
+    const k = c.dataset.mc;
+    if(S.mcAbertas.has(k)) S.mcAbertas.delete(k); else S.mcAbertas.add(k);
+    renderMC();
+  });
+}
+
 /* ===================== modal / navegação ===================== */
 function modal(html){
   document.getElementById("modal-corpo").innerHTML = html;
@@ -1830,8 +2043,8 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   b.classList.add("on");
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
   document.getElementById("v-"+b.dataset.v).classList.add("on");
-  ({dre:renderDre, notas:renderNotas, contas:renderContas, fonte:renderFonte,
-    sim:renderSim, atu:renderAtu})[b.dataset.v]();
+  ({dre:renderDre, mc:renderMC, notas:renderNotas, contas:renderContas,
+    fonte:renderFonte, sim:renderSim, atu:renderAtu})[b.dataset.v]();
 });
 document.querySelectorAll(".cg button[data-g]").forEach(b=>b.onclick=()=>{
   const g=b.dataset.g;
