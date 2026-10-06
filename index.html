@@ -86,6 +86,10 @@ select,input[type=text],input[type=password],input[type=email],textarea{
 .cs{width:1px;align-self:stretch;background:var(--border);margin:2px 0}
 
 /* ---------- tabela ---------- */
+/* margem negativa e o que esta tela existe para achar: o item some no meio de
+   centenas de linhas se nao gritar */
+tr.mcneg td{background:#FDECEA}
+tr.mcneg td .rot{color:#B3261E;font-weight:600}
 #aviso-dados{background:#FDECEA;border:1px solid var(--red);color:#7A2318;
   border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px}
 .quadro{background:var(--surface);border:1px solid var(--border);border-radius:10px;
@@ -424,7 +428,7 @@ const S = {
   meses:[], de:null, ate:null, colapsados:new Set(), abertos:new Set(),
   nivel:0, periodo:'Mês', media:'Nenhuma', av:0, ah:0,
   produtos:[], combSel:new Set(),
-  prd:null, mcDe:null, mcAte:null, mcAbertas:new Set()
+  prd:null, mcDe:null, mcAte:null, mcAbertas:new Set(), mcOrdem:'desc'
 };
 
 const fmt = n => (n===null||n===undefined||isNaN(n)) ? "" :
@@ -1858,8 +1862,20 @@ async function dispararAtualizacao(bt){
 async function carregarProdutos(){
   if(S.prd) return;
   const filtro = "projeto=eq."+CONFIG.PROJETO+"&chave=like.prd:*";
-  const linhas = await sbPaginado("dre_fato", filtro, "chave.asc,mes.asc");
+  // Sao ~17 mil linhas, 18 paginas de mil. Em sequencia isso leva uns dez
+  // segundos; sabendo a contagem antes, as paginas vao todas de uma vez.
   const esperado = await sbContagem("dre_fato", filtro);
+  let linhas;
+  if(esperado === null){
+    linhas = await sbPaginado("dre_fato", filtro, "chave.asc,mes.asc");
+  }else{
+    const faixas = [];
+    for(let de = 0; de < esperado; de += 1000) faixas.push(de);
+    const pags = await Promise.all(faixas.map(de =>
+      sb("dre_fato?" + filtro + "&select=*&order=chave.asc,mes.asc",
+         {headers:{"Range-Unit":"items", Range: de + "-" + (de+999)}})));
+    linhas = pags.flat();
+  }
   S.prdIncompleto = (esperado !== null && linhas.length !== esperado)
     ? {recebeu: linhas.length, esperado} : null;
   const out = {};
@@ -1920,8 +1936,11 @@ function apurarMC(ms){
     ["qtd","bruto","desconto","custo","rateio","margem"].forEach(k => c[k] += i[k]);
     c.filhos.push(i);
   }
-  const lista = Object.values(cats).sort((a,b) => b.margem - a.margem);
-  lista.forEach(c => c.filhos.sort((a,b) => b.margem - a.margem));
+  // Categoria em ordem de nome (1, 2, 3): a mesma do DRE, nao a do ranking --
+  // quem le compara com o demonstrativo ao lado.
+  const lista = Object.values(cats).sort((a,b) => a.cat.localeCompare(b.cat));
+  const sinal = S.mcOrdem === "asc" ? 1 : -1;
+  lista.forEach(c => c.filhos.sort((a,b) => sinal * (a.margem - b.margem)));
   const tot = {bruto:0, margem:0, qtd:0};
   lista.forEach(c => { tot.bruto += c.bruto; tot.margem += c.margem; });
   return {lista, tot};
@@ -1943,6 +1962,8 @@ function renderMC(){
     + '<select id="mc-de">'+opc(S.mcDe)+'</select>'
     + '<span style="color:var(--text-muted)">até</span>'
     + '<select id="mc-ate">'+opc(S.mcAte)+'</select></div>'
+    + '<div class="cs"></div><div class="cg"><span class="cl">Produtos</span>'
+    + '<button id="mc-ord"></button><button id="mc-todas"></button></div>'
     + '<div class="cs"></div><span id="mc-nota" style="font-size:12px;'
     + 'color:var(--text-muted);padding-left:8px"></span>';
   const liga = (id, campo) => document.getElementById(id).onchange = e => {
@@ -1951,6 +1972,22 @@ function renderMC(){
     renderMC();
   };
   liga("mc-de", "mcDe"); liga("mc-ate", "mcAte");
+
+  const bOrd = document.getElementById("mc-ord");
+  bOrd.textContent = S.mcOrdem === "asc" ? "menor margem primeiro"
+                                         : "maior margem primeiro";
+  bOrd.onclick = () => { S.mcOrdem = S.mcOrdem === "asc" ? "desc" : "asc"; renderMC(); };
+
+  const bTodas = document.getElementById("mc-todas");
+  const quaisCats = [...new Set(Object.keys(S.prd || {}).map(k => k.split("|")[0]))];
+  const todasAbertas = quaisCats.length > 0 && quaisCats.every(k => S.mcAbertas.has(k));
+  bTodas.textContent = todasAbertas ? "fechar todas" : "abrir todas";
+  bTodas.classList.toggle("active", todasAbertas);
+  bTodas.onclick = () => {
+    if(todasAbertas) S.mcAbertas.clear();
+    else quaisCats.forEach(k => S.mcAbertas.add(k));
+    renderMC();
+  };
 
   if(!S.prd){
     corpo.innerHTML = '<div class="vazio">carregando os produtos...</div>';
@@ -1977,7 +2014,9 @@ function renderMC(){
       ? '<span class="caret'+(aberta?"":" mais")+'" data-mc="'+o.cat+'">'
         + (aberta?"▾":"▸") + '</span>'
       : '<span class="caret"></span>';
-    return '<tr class="'+(nivel===0?"n1":"det")+'">'
+    // margem negativa e o que esta tela existe para achar
+    const mcneg = o.margem < 0 ? " mcneg" : "";
+    return '<tr class="'+(nivel===0?"n1":"det")+mcneg+'">'
       + '<td style="padding-left:'+(10+nivel*18)+'px">'+caret
       + '<span class="rot">'+rot+'</span></td>'
       + '<td>'+fmt(d(o.qtd))+'</td>'
@@ -2018,9 +2057,9 @@ function renderMC(){
     + 'registro próprio. O <i>rateio</i> é o que não tem dono — impostos, taxa '
     + 'de cartão, fretes, deslocamento de produtos e comissões — dividido pela '
     + 'fatia de cada um no faturamento.'
-    + '<div style="margin-top:7px">Cada categoria abre nos produtos que '
-    + 'respondem por 90% do seu faturamento; o resto vem somado em '
-    + '<i>Outros</i>, para o total continuar exato.</div></div>';
+    + '<div style="margin-top:7px">Cada categoria abre em <b>todos</b> os seus '
+    + 'produtos. Linha em vermelho é margem de contribuição negativa: o produto '
+    + 'não paga nem o próprio custo variável.</div></div>';
   corpo.innerHTML = h;
 
   corpo.querySelectorAll(".caret[data-mc]").forEach(c => c.onclick = () => {
