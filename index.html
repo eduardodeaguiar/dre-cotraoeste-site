@@ -1914,17 +1914,22 @@ function mesesMC(){
 /* O que nao pertence a produto nenhum, somado no periodo. Mesma definicao do
    analitico por litro: deducoes menos o grupo de desconto, mais o custo
    variavel menos as tres linhas de CMV. */
+/* O rateavel vem separado em dois: o que e DEDUCAO (impostos e taxa de cartao)
+   entra ANTES do faturamento liquido; o que e CUSTO VARIAVEL (fretes,
+   deslocamento, comissoes) entra depois. Num numero so a tabela nao fecharia
+   na vertical -- bruto menos desconto nao daria o liquido. */
 function baseRateio(ms){
-  let rob = 0, rateavel = 0;
+  let rob = 0, ded = 0, cv = 0;
   const mes = {};
   for(const m of ms){
     const c = calcular(m), v = ln => c[ln] || 0;
     const r = v(4);
-    const ra = (v(10) - v(14)) + (v(24) - v(26) - v(27) - v(28));
-    mes[m] = {rob: r, rateavel: ra};
-    rob += r; rateavel += ra;
+    const dd = v(10) - v(14);
+    const kk = v(24) - v(26) - v(27) - v(28);
+    mes[m] = {rob: r, ded: dd, cv: kk, rateavel: dd + kk};
+    rob += r; ded += dd; cv += kk;
   }
-  return {rob, rateavel, mes};
+  return {rob, ded, cv, rateavel: ded + cv, mes};
 }
 
 function apurarMC(ms){
@@ -1941,7 +1946,8 @@ function apurarMC(ms){
     }
     if(!teve) continue;
     // desconto e custo vem POSITIVOS do fato; no DRE entram com sinal -1
-    const rateio = base.rob ? base.rateavel * (bruto / base.rob) : 0;
+    const fatia = base.rob ? bruto / base.rob : 0;
+    const ratDed = base.ded * fatia, ratCv = base.cv * fatia;
     // o mes a mes do mapa de calor: mesma conta, um mes de cada vez
     const porMes = {};
     for(const m of ms){
@@ -1952,15 +1958,19 @@ function apurarMC(ms){
       const mg = b - (mm.desconto||0) - (mm.custo||0) + r;
       porMes[m] = {bruto: b, margem: mg, taxa: b ? mg/b : null};
     }
+    const liquido = bruto - desconto + ratDed;
     itens.push({cat: it.cat, prod: it.prod, qtd, bruto,
-                desconto: -desconto, custo: -custo, rateio,
-                margem: bruto - desconto - custo + rateio, porMes});
+                desconto: -desconto, ratDed, liquido,
+                custo: -custo, ratCv,
+                margem: liquido - custo + ratCv, porMes});
   }
   const cats = {};
   for(const i of itens){
     const c = (cats[i.cat] = cats[i.cat] || {cat:i.cat, prod:i.cat, qtd:0,
-      bruto:0, desconto:0, custo:0, rateio:0, margem:0, filhos:[], porMes:{}});
-    ["qtd","bruto","desconto","custo","rateio","margem"].forEach(k => c[k] += i[k]);
+      bruto:0, desconto:0, ratDed:0, liquido:0, custo:0, ratCv:0, margem:0,
+      filhos:[], porMes:{}});
+    ["qtd","bruto","desconto","ratDed","liquido","custo","ratCv","margem"]
+      .forEach(k => c[k] += i[k]);
     for(const m in i.porMes){
       const a = (c.porMes[m] = c.porMes[m] || {bruto:0, margem:0, taxa:null});
       a.bruto += i.porMes[m].bruto; a.margem += i.porMes[m].margem;
@@ -1975,8 +1985,9 @@ function apurarMC(ms){
   const lista = Object.values(cats).sort((a,b) => a.cat.localeCompare(b.cat));
   const sinal = S.mcOrdem === "asc" ? 1 : -1;
   lista.forEach(c => c.filhos.sort((a,b) => sinal * (a.margem - b.margem)));
-  const tot = {bruto:0, margem:0, qtd:0};
-  lista.forEach(c => { tot.bruto += c.bruto; tot.margem += c.margem; });
+  const tot = {bruto:0, liquido:0, margem:0, qtd:0};
+  lista.forEach(c => { tot.bruto += c.bruto; tot.liquido += c.liquido;
+                       tot.margem += c.margem; });
   return {lista, tot};
 }
 
@@ -2121,8 +2132,10 @@ function renderMC(){
       + '<td>'+fmt(d(o.qtd))+'</td>'
       + '<td>'+fmt(d(o.bruto))+'</td><td class="col-av">'+pct(o.bruto, tot.bruto)+'</td>'
       + '<td'+neg(o.desconto)+'>'+fmt(d(o.desconto))+'</td>'
+      + '<td'+neg(o.ratDed)+'>'+fmt(d(o.ratDed))+'</td>'
+      + '<td'+neg(o.liquido)+'><b>'+fmt(d(o.liquido))+'</b></td>'
       + '<td'+neg(o.custo)+'>'+fmt(d(o.custo))+'</td>'
-      + '<td'+neg(o.rateio)+'>'+fmt(d(o.rateio))+'</td>'
+      + '<td'+neg(o.ratCv)+'>'+fmt(d(o.ratCv))+'</td>'
       + '<td'+neg(o.margem)+'><b>'+fmt(d(o.margem))+'</b></td>'
       + '<td class="col-av">'+pct(o.margem, tot.margem)+'</td>'
       + '<td class="col-av"><b>'+(o.bruto?fmtPct(o.margem/o.bruto):"")+'</b></td>'
@@ -2154,8 +2167,9 @@ function renderMC(){
     + (mostrarCalor
         ? ms.map(m => '<th class="hm">' + m.slice(5) + '</th>').join("")
         : "")
-    + '<th>Qtd</th><th>Faturamento</th><th>% fat</th>'
-    + '<th>Desconto</th><th>CMV</th><th>Rateio</th><th>Margem</th>'
+    + '<th>Qtd</th><th>Fat. bruto</th><th>% fat</th>'
+    + '<th>Desconto</th><th>Impostos e cartão</th><th>Fat. líquido</th>'
+    + '<th>CMV</th><th>Fretes, desloc. e com.</th><th>Margem</th>'
     + '<th>% marg</th><th>Marg/Fat</th><th>Marg/un</th></tr></thead><tbody>';
   for(const c of ap.lista){
     const aberta = S.mcAbertas.has(c.cat);
@@ -2165,7 +2179,8 @@ function renderMC(){
   h += '<tr class="kpi"><td><span class="caret"></span><span class="rot">TOTAL</span></td>'
     + (mostrarCalor ? ms.map(() => '<td class="hm vazia"></td>').join("") : "")
     + '<td></td><td>'+fmt(d(tot.bruto))+'</td><td class="col-av">100,0%</td>'
-    + '<td></td><td></td><td></td><td><b>'+fmt(d(tot.margem))+'</b></td>'
+    + '<td></td><td></td><td><b>'+fmt(d(tot.liquido))+'</b></td>'
+    + '<td></td><td></td><td><b>'+fmt(d(tot.margem))+'</b></td>'
     + '<td class="col-av">100,0%</td>'
     + '<td class="col-av"><b>'+(tot.bruto?fmtPct(tot.margem/tot.bruto):"")+'</b></td>'
     + '<td></td></tr></tbody></table></div>';
@@ -2191,7 +2206,8 @@ function renderMC(){
     + 'já saiu na origem. Faturamento, desconto e CMV são de cada produto, com '
     + 'registro próprio. O <i>rateio</i> é o que não tem dono — impostos, taxa '
     + 'de cartão, fretes, deslocamento de produtos e comissões — dividido pela '
-    + 'fatia de cada um no faturamento.'
+    + 'fatia de cada um no faturamento, e em duas colunas porque a primeira '
+    + 'parte entra antes do faturamento líquido e a segunda depois, como no DRE.'
     + '<div style="margin-top:7px">Cada categoria abre em <b>todos</b> os seus '
     + 'produtos. Linha em vermelho é margem de contribuição negativa: o produto '
     + 'não paga nem o próprio custo variável.</div></div>';
