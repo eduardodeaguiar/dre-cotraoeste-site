@@ -86,6 +86,19 @@ select,input[type=text],input[type=password],input[type=email],textarea{
 .cs{width:1px;align-self:stretch;background:var(--border);margin:2px 0}
 
 /* ---------- tabela ---------- */
+/* Faixa de meses. Celula estreita e sem numero: a tabela ao lado ja carrega os
+   valores, e aqui o que se le e o padrao, por varredura. */
+#t-mc th.hm{width:26px;padding:10px 3px;text-align:center;font-size:10px;
+  letter-spacing:0}
+#t-mc td.hm{width:26px;padding:0;border-left:2px solid var(--surface)}
+#t-mc td.hm.vazia{background:repeating-linear-gradient(45deg,
+  #fafafa,#fafafa 3px,#f0f0f0 3px,#f0f0f0 6px)}
+.legenda-hm{display:flex;gap:18px;align-items:center;justify-content:space-between;
+  margin-top:8px;font-size:12px;color:var(--text-secondary);flex-wrap:wrap}
+.legenda-hm .escala{display:flex;align-items:center;gap:3px;white-space:nowrap}
+.legenda-hm .escala em{width:17px;height:11px;border-radius:2px;display:block}
+.legenda-hm .escala i{font-style:normal;color:var(--text-muted);font-size:11px;
+  padding:0 4px}
 /* margem negativa e o que esta tela existe para achar: o item some no meio de
    centenas de linhas se nao gritar */
 tr.mcneg td{background:#FDECEA}
@@ -1902,12 +1915,15 @@ function mesesMC(){
    variavel menos as tres linhas de CMV. */
 function baseRateio(ms){
   let rob = 0, rateavel = 0;
+  const mes = {};
   for(const m of ms){
     const c = calcular(m), v = ln => c[ln] || 0;
-    rob += v(4);
-    rateavel += (v(10) - v(14)) + (v(24) - v(26) - v(27) - v(28));
+    const r = v(4);
+    const ra = (v(10) - v(14)) + (v(24) - v(26) - v(27) - v(28));
+    mes[m] = {rob: r, rateavel: ra};
+    rob += r; rateavel += ra;
   }
-  return {rob, rateavel};
+  return {rob, rateavel, mes};
 }
 
 function apurarMC(ms){
@@ -1925,17 +1941,34 @@ function apurarMC(ms){
     if(!teve) continue;
     // desconto e custo vem POSITIVOS do fato; no DRE entram com sinal -1
     const rateio = base.rob ? base.rateavel * (bruto / base.rob) : 0;
+    // o mes a mes do mapa de calor: mesma conta, um mes de cada vez
+    const porMes = {};
+    for(const m of ms){
+      const mm = it.meses[m]; if(!mm) continue;
+      const b = mm.bruto || 0;
+      const r = base.mes[m] && base.mes[m].rob
+        ? base.mes[m].rateavel * (b / base.mes[m].rob) : 0;
+      const mg = b - (mm.desconto||0) - (mm.custo||0) + r;
+      porMes[m] = {bruto: b, margem: mg, taxa: b ? mg/b : null};
+    }
     itens.push({cat: it.cat, prod: it.prod, qtd, bruto,
                 desconto: -desconto, custo: -custo, rateio,
-                margem: bruto - desconto - custo + rateio});
+                margem: bruto - desconto - custo + rateio, porMes});
   }
   const cats = {};
   for(const i of itens){
     const c = (cats[i.cat] = cats[i.cat] || {cat:i.cat, prod:i.cat, qtd:0,
-      bruto:0, desconto:0, custo:0, rateio:0, margem:0, filhos:[]});
+      bruto:0, desconto:0, custo:0, rateio:0, margem:0, filhos:[], porMes:{}});
     ["qtd","bruto","desconto","custo","rateio","margem"].forEach(k => c[k] += i[k]);
+    for(const m in i.porMes){
+      const a = (c.porMes[m] = c.porMes[m] || {bruto:0, margem:0, taxa:null});
+      a.bruto += i.porMes[m].bruto; a.margem += i.porMes[m].margem;
+    }
     c.filhos.push(i);
   }
+  for(const c of Object.values(cats))
+    for(const m in c.porMes)
+      c.porMes[m].taxa = c.porMes[m].bruto ? c.porMes[m].margem/c.porMes[m].bruto : null;
   // Categoria em ordem de nome (1, 2, 3): a mesma do DRE, nao a do ranking --
   // quem le compara com o demonstrativo ao lado.
   const lista = Object.values(cats).sort((a,b) => a.cat.localeCompare(b.cat));
@@ -1944,6 +1977,41 @@ function apurarMC(ms){
   const tot = {bruto:0, margem:0, qtd:0};
   lista.forEach(c => { tot.bruto += c.bruto; tot.margem += c.margem; });
   return {lista, tot};
+}
+
+/* ===== mapa de calor mes a mes =====
+
+   A celula NAO pinta o nivel da margem, pinta o DESVIO do proprio normal da
+   linha. Escala absoluta unica nao servia: no mes a mes a categoria vive entre
+   2% e 26% enquanto o produto tipico passa de 27% e chega a 94% -- qualquer
+   escala que mostrasse um apagava o outro.
+
+   Assim a unidade e a mesma em toda a tabela (pontos percentuais de desvio),
+   linha estavel fica cinza de ponta a ponta e linha volatil acende. O NIVEL
+   continua na coluna Marg/Fat, ao lado: as duas informacoes se completam em
+   vez de competir.
+
+   Divergente azul<->vermelho, nao verde<->vermelho: esse par e indistinguivel
+   para quem tem daltonismo, que e o erro classico de planilha financeira.
+   O valor exato vai no titulo de cada celula. */
+const HEAT_ABAIXO = ["#f3b0b0", "#d03b3b", "#8c1d1d"];   // pior que o normal
+const HEAT_ACIMA  = ["#9ec5f4", "#3987e5", "#184f95"];   // melhor que o normal
+const HEAT_NEUTRO = "#f0efec";
+const HEAT_FAIXA  = 0.06;   // +-6 pontos percentuais satura a escala
+
+function corDesvio(d){
+  if(d === null || isNaN(d)) return null;
+  const f = Math.min(Math.abs(d) / HEAT_FAIXA, 1);
+  if(f < 0.12) return HEAT_NEUTRO;
+  const ramp = d < 0 ? HEAT_ABAIXO : HEAT_ACIMA;
+  return ramp[Math.min(Math.floor(f * ramp.length), ramp.length - 1)];
+}
+
+/* Media, nao mediana: com tres meses a mediana e o valor do meio, e aquela
+   celula sairia sempre neutra sem que isso quisesse dizer nada. */
+function mediaValida(vs){
+  const v = vs.filter(x => x !== null && !isNaN(x));
+  return v.length ? v.reduce((a,b) => a+b, 0) / v.length : null;
 }
 
 function renderMC(){
@@ -2007,6 +2075,8 @@ function renderMC(){
     : "dados de " + rotMes(ms[0]);
 
   const ap = apurarMC(ms), tot = ap.tot;
+  // com um mes so nao ha o que comparar: a faixa viraria uma coluna unica
+  const mostrarCalor = ms.length > 1;
   const pct = (v, base) => base ? fmtPct(v/base) : "";
   const neg = v => v < 0 ? ' class="neg"' : "";
   const linha = (o, rot, nivel, temFilhos, aberta) => {
@@ -2019,6 +2089,7 @@ function renderMC(){
     return '<tr class="'+(nivel===0?"n1":"det")+mcneg+'">'
       + '<td style="padding-left:'+(10+nivel*18)+'px">'+caret
       + '<span class="rot">'+rot+'</span></td>'
+      + faixaCalor(o)
       + '<td>'+fmt(d(o.qtd))+'</td>'
       + '<td>'+fmt(d(o.bruto))+'</td><td class="col-av">'+pct(o.bruto, tot.bruto)+'</td>'
       + '<td'+neg(o.desconto)+'>'+fmt(d(o.desconto))+'</td>'
@@ -2030,8 +2101,32 @@ function renderMC(){
       + '<td>'+(o.qtd?fmt4(o.margem/o.qtd):"")+'</td></tr>';
   };
 
+  /* A faixa de meses: cada celula e o desvio daquele mes em relacao ao normal
+     da PROPRIA linha. O numero exato fica no titulo -- cor sozinha nunca conta
+     a historia toda, e quem imprime em preto e branco perde a cor. */
+  const faixaCalor = o => {
+    if(!mostrarCalor) return "";
+    const taxas = ms.map(m => o.porMes?.[m]?.taxa ?? null);
+    const med = mediaValida(taxas);
+    return ms.map((m, i) => {
+      const x = o.porMes?.[m];
+      if(!x || taxas[i] === null)
+        return '<td class="hm vazia" title="' + rotMes(m) + ' · sem venda"></td>';
+      const dv = taxas[i] - med;
+      const cor = corDesvio(dv);
+      const dica = rotMes(m) + " · " + fmtPct(taxas[i]) + " de margem · "
+                 + fmt(x.margem) + " · " + fmtPP(dv) + " da média da linha";
+      return '<td class="hm" style="background:' + cor + '" title="'
+             + dica.replace(/"/g, "&quot;") + '"></td>';
+    }).join("");
+  };
+
   let h = '<div class="quadro"><table id="t-mc"><thead><tr>'
-    + '<th>Categoria / produto</th><th>Qtd</th><th>Faturamento</th><th>% fat</th>'
+    + '<th>Categoria / produto</th>'
+    + (mostrarCalor
+        ? ms.map(m => '<th class="hm">' + m.slice(5) + '</th>').join("")
+        : "")
+    + '<th>Qtd</th><th>Faturamento</th><th>% fat</th>'
     + '<th>Desconto</th><th>CMV</th><th>Rateio</th><th>Margem</th>'
     + '<th>% marg</th><th>Marg/Fat</th><th>Marg/un</th></tr></thead><tbody>';
   for(const c of ap.lista){
@@ -2040,11 +2135,23 @@ function renderMC(){
     if(aberta) for(const f of c.filhos) h += linha(f, f.prod, 1, false, false);
   }
   h += '<tr class="kpi"><td><span class="caret"></span><span class="rot">TOTAL</span></td>'
+    + (mostrarCalor ? ms.map(() => '<td class="hm vazia"></td>').join("") : "")
     + '<td></td><td>'+fmt(d(tot.bruto))+'</td><td class="col-av">100,0%</td>'
     + '<td></td><td></td><td></td><td><b>'+fmt(d(tot.margem))+'</b></td>'
     + '<td class="col-av">100,0%</td>'
     + '<td class="col-av"><b>'+(tot.bruto?fmtPct(tot.margem/tot.bruto):"")+'</b></td>'
     + '<td></td></tr></tbody></table></div>';
+
+  if(mostrarCalor)
+    h += '<div class="legenda-hm"><span>A faixa de meses mostra, em cada '
+      + 'linha, se aquele mês foi melhor ou pior que a <b>média dela</b> — não '
+      + 'o nível da margem, que está em Marg/Fat. Passe o mouse para o número.'
+      + '</span><span class="escala">'
+      + '<i>pior</i>' + HEAT_ABAIXO.slice().reverse()
+          .map(c => '<em style="background:' + c + '"></em>').join("")
+      + '<em style="background:' + HEAT_NEUTRO + '"></em>'
+      + HEAT_ACIMA.map(c => '<em style="background:' + c + '"></em>').join("")
+      + '<i>melhor</i></span></div>';
 
   if(S.prdIncompleto)
     h = '<div id="aviso-dados">Os produtos vieram incompletos ('
