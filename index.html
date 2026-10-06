@@ -2042,12 +2042,20 @@ function renderMC(){
     + '<button id="mc-calor"></button></div>'
     + '<div class="cs"></div><span id="mc-nota" style="font-size:12px;'
     + 'color:var(--text-muted);padding-left:8px"></span>';
-  const liga = (id, campo) => document.getElementById(id).onchange = e => {
-    S[campo] = e.target.value;
-    if(S.mcDe > S.mcAte){ const x = S.mcDe; S.mcDe = S.mcAte; S.mcAte = x; }
+  /* Mexer no "de" leva o "ate" junto: escolher UM mes vira um clique so, que
+     e o caso mais comum. Quem quer mais de um mes mexe so no "ate" depois --
+     um clique para a pergunta frequente, dois para a rara. */
+  document.getElementById("mc-de").onchange = e => {
+    S.mcDe = S.mcAte = e.target.value;
     renderMC();
   };
-  liga("mc-de", "mcDe"); liga("mc-ate", "mcAte");
+  document.getElementById("mc-ate").onchange = e => {
+    S.mcAte = e.target.value;
+    // puxar o fim para tras do inicio nao e erro de quem clica: e pedir o
+    // intervalo ao contrario, entao o inicio acompanha
+    if(S.mcAte < S.mcDe) S.mcDe = S.mcAte;
+    renderMC();
+  };
 
   const bOrd = document.getElementById("mc-ord");
   bOrd.textContent = S.mcOrdem === "asc" ? "menor margem primeiro"
@@ -2071,6 +2079,9 @@ function renderMC(){
   bCalor.title = "pinta cada mês conforme ele foi melhor ou pior que a média "
                + "da própria linha";
   bCalor.onclick = () => { S.mcCalor = !S.mcCalor; renderMC(); };
+  // ligado com um mes so nao mostra nada; dizer por que evita parecer defeito
+  if(S.mcCalor && mesesMC().length <= 1)
+    bCalor.title = "precisa de mais de um mês para comparar";
 
   if(!S.prd){
     corpo.innerHTML = '<div class="vazio">carregando os produtos...</div>';
