@@ -2134,6 +2134,7 @@ function renderMC(){
       + '<td'+neg(o.desconto)+'>'+fmt(d(o.desconto))+'</td>'
       + '<td'+neg(o.ratDed)+'>'+fmt(d(o.ratDed))+'</td>'
       + '<td'+neg(o.liquido)+'><b>'+fmt(d(o.liquido))+'</b></td>'
+      + '<td class="col-av">'+pct(o.liquido, tot.liquido)+'</td>'
       + '<td'+neg(o.custo)+'>'+fmt(d(o.custo))+'</td>'
       + '<td'+neg(o.ratCv)+'>'+fmt(d(o.ratCv))+'</td>'
       + '<td'+neg(o.margem)+'><b>'+fmt(d(o.margem))+'</b></td>'
@@ -2169,6 +2170,7 @@ function renderMC(){
         : "")
     + '<th>Qtd</th><th>Fat. bruto</th><th>% fat</th>'
     + '<th>Desconto</th><th>Impostos e cartão</th><th>Fat. líquido</th>'
+    + '<th>% fat líq.</th>'
     + '<th>CMV</th><th>Fretes, desloc. e com.</th><th>Margem</th>'
     + '<th>% marg</th><th>Marg/Fat</th><th>Marg/un</th></tr></thead><tbody>';
   for(const c of ap.lista){
@@ -2180,6 +2182,7 @@ function renderMC(){
     + (mostrarCalor ? ms.map(() => '<td class="hm vazia"></td>').join("") : "")
     + '<td></td><td>'+fmt(d(tot.bruto))+'</td><td class="col-av">100,0%</td>'
     + '<td></td><td></td><td><b>'+fmt(d(tot.liquido))+'</b></td>'
+    + '<td class="col-av">100,0%</td>'
     + '<td></td><td></td><td><b>'+fmt(d(tot.margem))+'</b></td>'
     + '<td class="col-av">100,0%</td>'
     + '<td class="col-av"><b>'+(tot.bruto?fmtPct(tot.margem/tot.bruto):"")+'</b></td>'
