@@ -546,7 +546,12 @@ async function carregar(){
   S.fato = {};
   for(const f of fat){ (S.fato[f.mes] = S.fato[f.mes]||{})[f.chave] = +f.valor; }
   S.edicoes = {};
+  /* Valor nulo e LAPIDE, nao edicao: marca que alguem devolveu a celula ao
+     valor do sistema. A linha precisa continuar existindo, senao a importacao
+     da planilha a reinsere -- foi assim que a remocao da Luiza voltou. */
   for(const e of edi){ S.edicoes[e.linha+"|"+e.mes] = e; }
+  S.devolvidas = new Set(edi.filter(e => e.valor === null)
+                            .map(e => e.linha + "|" + e.mes));
   S.notas = not; S.contas = con; S.carga = car?.[0] || null;
   // Conferir o que chegou contra o que o servidor diz existir e o unico jeito
   // de um corte silencioso dar as caras -- ja sumiram 213 linhas sem ninguem
@@ -576,7 +581,8 @@ function calcular(mes, ignorar){
     if(andando.has(ln)) return 0;
     andando.add(ln);
     let r = null;
-    const ed = (ln === ignorar) ? null : S.edicoes[ln+"|"+mes];
+    const bruta = (ln === ignorar) ? null : S.edicoes[ln+"|"+mes];
+    const ed = (bruta && bruta.valor !== null) ? bruta : null;
     if(ed){ r = +ed.valor; }                       // edição manda em tudo
     else {
       const c = it.config || {};
@@ -1051,7 +1057,8 @@ function renderDre(){
     const fmtLinha = it.config?.por_litro ? fmt4 : fmt;
     cols.forEach((c,ci)=>{
       const v = valorCol(calc, it.linha, c);
-      const ed = c.tipo==="mes" ? S.edicoes[it.linha+"|"+c.meses[0]] : null;
+      const edc = c.tipo==="mes" ? S.edicoes[it.linha+"|"+c.meses[0]] : null;
+      const ed = (edc && edc.valor !== null) ? edc : null;
       const nt = c.tipo==="mes" ? notasPor[it.linha+"|"+c.meses[0]] : null;
       const cm = c.tipo==="media" ? " mediaCol" : "";
       let td = '<td class="ini '+(ed?"man ":"")+(S.admin&&c.tipo==="mes"?"edit ":"")+
@@ -1127,7 +1134,8 @@ function renderKpis(calc, ms){
 /* ===================== edição manual ===================== */
 function abrirEdicao(linha, mes){
   const it = S.estrutura.find(i=>i.linha===linha);
-  const ed = S.edicoes[linha+"|"+mes];
+  const edBruta = S.edicoes[linha+"|"+mes];
+  const ed = (edBruta && edBruta.valor !== null) ? edBruta : null;
   const calculado = calcular(mes)[linha];
   modal(`
     <h3>${it.rotulo||"linha "+linha}</h3>
@@ -1156,8 +1164,23 @@ function abrirEdicao(linha, mes){
     await carregar(); fecharModal(); renderDre();
   };
   if(ed) document.getElementById("e-tirar").onclick = async ()=>{
-    await sb(`dre_edicoes?projeto=eq.${CONFIG.PROJETO}&linha=eq.${linha}&mes=eq.${mes}`,
-             {method:"DELETE",headers:{Prefer:"return=minimal"}});
+    /* Grava uma LAPIDE em vez de apagar: a linha fica, com valor nulo, dizendo
+       que alguem devolveu a celula ao sistema. Apagar nao bastava -- a
+       importacao da planilha so pula a linha que AINDA existe, entao a celula
+       voltava editada na rodada seguinte.
+       Se a coluna ainda nao aceitar nulo (falta rodar o ALTER TABLE), cai no
+       comportamento antigo em vez de deixar o usuario sem saida. */
+    const marca = [{projeto:CONFIG.PROJETO, linha, mes, valor:null,
+                    motivo:"devolvida ao valor do sistema",
+                    autor:S.sessao.user.email}];
+    try{
+      await sb("dre_edicoes?on_conflict=projeto,linha,mes",{method:"POST",
+        headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
+        body:JSON.stringify(marca)});
+    }catch(e){
+      await sb(`dre_edicoes?projeto=eq.${CONFIG.PROJETO}&linha=eq.${linha}&mes=eq.${mes}`,
+               {method:"DELETE",headers:{Prefer:"return=minimal"}});
+    }
     await carregar(); fecharModal(); renderDre();
   };
 }
@@ -1176,8 +1199,12 @@ function linhasDoRegistro(){
   const itens = [];
   for(const k in S.edicoes){
     const e = S.edicoes[k];
+    // Valor nulo e lapide: a celula foi DEVOLVIDA ao sistema. Fica no registro
+    // -- quem desfez um ajuste mexeu no resultado tanto quanto quem o fez.
+    const devolvida = e.valor === null;
     itens.push({tipo:"edicao", id:e.linha+"|"+e.mes, autor:e.autor, mes:e.mes,
-                de:valorAntes(e.linha, e.mes), para:+e.valor,
+                de:devolvida ? null : valorAntes(e.linha, e.mes),
+                para:devolvida ? null : +e.valor,
                 linha:e.linha, conta:rot[e.linha]||("linha "+e.linha),
                 texto:e.motivo||"", quando:e.quando});
   }
