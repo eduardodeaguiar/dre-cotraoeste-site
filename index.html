@@ -942,13 +942,6 @@ function renderDre(){
   const notasPor = {};
   S.notas.forEach(n=>{ if(n.linha) (notasPor[n.linha+"|"+n.mes]=notasPor[n.linha+"|"+n.mes]||[]).push(n); });
 
-  // Um ancestral aberto na mão vence o nível global: dá para abrir uma conta
-  // sem ter de destravar a tabela inteira.
-  const abertoAcima = ln => {
-    let p = pais[ln]; const visto = new Set();
-    while(p!=null && !visto.has(p)){ visto.add(p); if(S.abertos.has(p)) return true; p = pais[p]; }
-    return false;
-  };
   const recolhidoAcima = ln => {
     let p = pais[ln]; const visto = new Set();
     while(p!=null && !visto.has(p)){ visto.add(p); if(S.colapsados.has(p)) return true; p = pais[p]; }
@@ -990,14 +983,11 @@ function renderDre(){
      aberta embaixo. */
   const naTela = it => {
     if(recolhidoAcima(it.linha)) return false;
-    if((it.nivel||0) > nivelMax){
-      // so_pai_direto: abrir um sintetico la em cima nao arrasta esta linha
-      // junto; ela so aparece se a conta DELA for aberta
-      const porAbertura = it.config?.so_pai_direto
-        ? S.abertos.has(pais[it.linha])
-        : abertoAcima(it.linha);
-      if(!porAbertura) return false;
-    }
+    // Abrir uma linha mostra os FILHOS DIRETOS dela, fechados -- nao a arvore
+    // inteira abaixo. Antes bastava um ancestral QUALQUER estar aberto, entao
+    // clicar na Receita Bruta no nivel 1 despejava tres niveis de uma vez, e
+    // as linhas do meio ja vinham abertas sem ninguem ter pedido.
+    if((it.nivel||0) > nivelMax && !S.abertos.has(pais[it.linha])) return false;
     // detalhe que e zero em todas as colunas nao ocupa linha
     if(it.tipo==="info" && cols.every(c=>!valorCol(calc,it.linha,c))) return false;
     return true;
