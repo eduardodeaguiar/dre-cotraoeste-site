@@ -580,7 +580,13 @@ function calcular(mes, ignorar){
     if(ed){ r = +ed.valor; }                       // edição manda em tudo
     else {
       const c = it.config || {};
-      if(it.tipo==="manual")      r = +(c.valor||0);
+      // Linha "manual" e valor digitado na planilha, nao conta do sistema. Ela
+      // varia de mes para mes, entao `valores` manda; `valor` sozinho e o
+      // numero de um mes so, e repeti-lo em todos foi o que fez agosto ganhar
+      // uma excecao de 402,00 que a planilha nao tinha. Mes sem valor e ZERO:
+      // ajuste manual que ninguem registrou e ajuste que nao existe.
+      if(it.tipo==="manual")
+        r = c.valores ? +(c.valores[mes] || 0) : +(c.valor || 0);
       else if(it.tipo==="fonte" || it.tipo==="info"){   // 'info' soma igual,
                                                         // so nao entra em total
 
