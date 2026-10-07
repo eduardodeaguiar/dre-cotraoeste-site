@@ -120,7 +120,13 @@ thead tr:first-child th:first-child{text-align:left;left:0;z-index:25}
    enquanto a coluna ia a 392, e sobrava um branco entre as duas. */
 #t-dre thead tr:first-child th:first-child,
 #t-dre tbody td:first-child{width:370px;min-width:370px;max-width:370px}
-#t-dre tbody td:first-child{overflow:hidden;text-overflow:ellipsis}
+#t-dre tbody td:first-child{overflow:hidden}
+/* A elipse tem de ficar no ROTULO, nao na celula: `.rot` e inline-block, e um
+   inline-block mais largo que o espaco e trocado INTEIRO por "...", em vez de
+   cortado no fim. Era o que acontecia com nome comprido de fornecedor --
+   linhas que mostravam so reticencias. O nome completo fica no title. */
+#t-dre tbody td:first-child .rot{max-width:calc(100% - 18px);overflow:hidden;
+  text-overflow:ellipsis;vertical-align:bottom}
 /* O risco separa um mes do outro e atravessa as colunas de AV e AH: sem ele,
    com tres colunas por mes, a vista perde onde um periodo acaba. */
 thead th.ini,tbody td.ini{border-left:2px solid var(--border)}
