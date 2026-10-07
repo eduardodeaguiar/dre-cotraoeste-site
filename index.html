@@ -994,7 +994,18 @@ function renderDre(){
   };
 
   for(const it of ordenada){
-    if(it.oculta && !it.rotulo){ h += '<tr class="vazia"><td colspan="'+(nCol+1)+'"></td></tr>'; continue; }
+    if(!it.rotulo){
+      /* Linha sem rotulo que CARREGA valor nao e espaco em branco: e
+         auxiliar. Sao duas -- a regua de litros, que mora no cabecalho, e o
+         valor fixo das excecoes de lancamento, que a linha de deslocamento de
+         motorista consome por `mais_linhas`. Desenhar um espacador para elas
+         abria um buraco no meio do bloco de custo variavel, entre deslocamento
+         de produtos e comissoes, sem nada ali para separar. */
+      const cfg = it.config || {};
+      if(cfg.valor != null || cfg.fontes || cfg.parcelas) continue;
+      h += '<tr class="vazia"><td colspan="'+(nCol+1)+'"></td></tr>';
+      continue;
+    }
     if(!naTela(it)) continue;
     const niv = it.nivel||0;
 
