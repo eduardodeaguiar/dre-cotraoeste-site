@@ -347,6 +347,7 @@ table.sim input:focus{outline:2px solid var(--green);outline-offset:-1px}
   <button data-v="fonte">Fonte de dados</button>
   <button data-v="sim">Simulador</button>
   <button data-v="atu">Atualizações</button>
+  <button data-v="log" id="aba-log" class="oculto">Registro</button>
 </nav>
 
 <main>
@@ -394,6 +395,10 @@ table.sim input:focus{outline:2px solid var(--green);outline-offset:-1px}
   <section id="v-mc" class="view">
     <div class="ctl" id="mc-ctl"></div>
     <div id="mc-corpo"></div>
+  </section>
+
+  <section id="v-log" class="view">
+    <div id="log-corpo"></div>
   </section>
 
   <section id="v-notas" class="view">
@@ -447,6 +452,7 @@ const S = {
   meses:[], de:null, ate:null, colapsados:new Set(), abertos:new Set(),
   nivel:0, periodo:'Mês', media:'Nenhuma', av:0, ah:0,
   produtos:[], combSel:new Set(),
+  nivel:'le', podeAtualizar:false, dono:false, log:[],
   prd:null, mcDe:null, mcAte:null, mcAbertas:new Set(), mcOrdem:'desc',
   mcCalor:false
 };
@@ -1890,6 +1896,7 @@ async function dispararAtualizacao(bt){
   if(estado) estado.textContent = "pedindo a rodada...";
   try{
     const r = await apiWorker("/api/atualizar", {method:"POST"});
+    registrar("atualizou", r.jaRodava ? "acompanhou uma rodada em curso" : null);
     acompanhar(bt, r);
     if(r.jaRodava && estado)
       estado.textContent = "já havia uma rodada em curso — acompanhando essa";
@@ -2263,6 +2270,99 @@ function renderMC(){
   });
 }
 
+/* ===================== registro =====================
+   Quem entrou e quem mandou atualizar. O que mexeu em NUMERO -- edicao e nota
+   -- ja tem autor e data nas proprias tabelas e aparece na aba de notas; aqui
+   ficaria duplicado.
+
+   Quem le e o banco que decide: a politica de leitura da dre_log exige nivel
+   'dono'. Esconder a aba e conveniencia, nao seguranca. */
+async function carregarLog(){
+  try{
+    S.log = await sbPaginado("dre_log", "projeto=eq." + CONFIG.PROJETO,
+                             "quando.desc") || [];
+    S.logErro = null;
+  }catch(e){
+    S.log = [];
+    S.logErro = String(e.message || e);
+  }
+}
+
+function renderLog(){
+  const el = document.getElementById("log-corpo");
+  if(!el) return;
+  if(!S.dono){
+    el.innerHTML = '<div class="vazio">Esta aba é do dono.</div>';
+    return;
+  }
+  if(S.log === null || S.log === undefined || !S.logCarregado){
+    el.innerHTML = '<div class="vazio">carregando o registro...</div>';
+    carregarLog().then(()=>{ S.logCarregado = true; renderLog(); });
+    return;
+  }
+  if(S.logErro){
+    el.innerHTML = '<div id="aviso-dados">Não consegui ler o registro: '
+      + S.logErro.slice(0, 200) + '</div>';
+    return;
+  }
+  if(!S.log.length){
+    el.innerHTML = '<div class="vazio">Nada registrado ainda. '
+      + 'O registro começa a partir de agora — entradas e atualizações '
+      + 'anteriores não foram guardadas.</div>';
+    return;
+  }
+
+  const ROTULO = {entrou: "entrou", atualizou: "mandou atualizar"};
+  const quando = s => {
+    const d = new Date(s);
+    return d.toLocaleString("pt-BR", {day:"2-digit", month:"2-digit",
+      year:"2-digit", hour:"2-digit", minute:"2-digit"});
+  };
+
+  // um resumo por pessoa, que e o que se quer saber de relance
+  const por = {};
+  for(const l of S.log){
+    const p = (por[l.quem] = por[l.quem] || {quem:l.quem, entrou:0,
+                                             atualizou:0, ultimo:l.quando});
+    if(l.acao === "entrou") p.entrou++;
+    else if(l.acao === "atualizou") p.atualizou++;
+    if(l.quando > p.ultimo) p.ultimo = l.quando;
+  }
+  const pessoas = Object.values(por).sort((a,b)=> b.ultimo.localeCompare(a.ultimo));
+
+  let h = '<div class="cards">'
+    + pessoas.map(p => '<div class="card"><div class="rot">' + p.quem + '</div>'
+        + '<div class="val" style="font-size:15px">' + p.entrou + ' entrada'
+        + (p.entrou === 1 ? '' : 's') + ' · ' + p.atualizou + ' atualizaç'
+        + (p.atualizou === 1 ? 'ão' : 'ões') + '</div>'
+        + '<div style="font-size:12px;color:var(--text-muted);margin-top:3px">'
+        + 'última vez ' + quando(p.ultimo) + '</div></div>').join("")
+    + '</div>';
+
+  h += '<div class="quadro" style="margin-top:12px"><table id="t-log"><thead><tr>'
+    + '<th style="text-align:left">Quando</th><th style="text-align:left">Quem</th>'
+    + '<th style="text-align:left">O quê</th>'
+    + '<th style="text-align:left">Detalhe</th></tr></thead><tbody>';
+  for(const l of S.log.slice(0, 500))
+    h += '<tr class="det"><td style="text-align:left">' + quando(l.quando) + '</td>'
+      + '<td style="text-align:left">' + l.quem + '</td>'
+      + '<td style="text-align:left">' + (ROTULO[l.acao] || l.acao) + '</td>'
+      + '<td style="text-align:left;color:var(--text-muted)">'
+      + (l.detalhe || "") + '</td></tr>';
+  h += '</tbody></table></div>';
+  if(S.log.length > 500)
+    h += '<div style="font-size:12px;color:var(--text-muted);margin-top:8px">'
+      + 'mostrando os 500 mais recentes de ' + S.log.length + '.</div>';
+
+  h += '<div class="aviso" style="margin-top:12px">'
+    + '<b>O que entra aqui.</b> Entradas no sistema e pedidos de atualização. '
+    + 'Quem mexeu em número — editou célula ou escreveu nota — aparece na aba '
+    + '<i>Notas explicativas</i>, com o valor de antes e o de depois, que é '
+    + 'onde isso é útil. O registro não guarda o que ninguém apenas olhou.'
+    + '</div>';
+  el.innerHTML = h;
+}
+
 /* ===================== modal / navegação ===================== */
 function modal(html){
   document.getElementById("modal-corpo").innerHTML = html;
@@ -2277,7 +2377,7 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
   document.getElementById("v-"+b.dataset.v).classList.add("on");
   ({dre:renderDre, mc:renderMC, notas:renderNotas, contas:renderContas,
-    fonte:renderFonte, sim:renderSim, atu:renderAtu})[b.dataset.v]();
+    fonte:renderFonte, sim:renderSim, atu:renderAtu, log:renderLog})[b.dataset.v]();
 });
 document.querySelectorAll(".cg button[data-g]").forEach(b=>b.onclick=()=>{
   const g=b.dataset.g;
@@ -2306,9 +2406,12 @@ async function iniciar(){
       S.ate=document.getElementById("f-ate").value; renderDre(); };
   };
   sel("f-de", S.de); sel("f-ate", S.ate);
+  // a aba de registro so existe para o dono; esconder nao e protecao (o banco
+  // e que recusa a leitura), mas nao ter um botao morto na barra ja ajuda
+  document.getElementById("aba-log").classList.toggle("oculto", !S.dono);
   document.getElementById("quem").textContent =
-    S.sessao.user.email + (S.admin ? " · edita"
-                         : S.podeAtualizar ? " · atualiza" : " · leitura");
+    S.sessao.user.email + " · " + ({le:"leitura", atualiza:"atualiza",
+                                    edita:"edita", dono:"dono"}[S.nivel] || "leitura");
   renderDre();
 }
 
@@ -2319,23 +2422,40 @@ document.getElementById("lg-entrar").onclick = async ()=>{
                             document.getElementById("lg-senha").value);
     localStorage.setItem("dre_sessao", JSON.stringify(S.sessao));
     await definirNivel();
+    registrar("entrou");
     document.getElementById("login").classList.add("oculto");
     await iniciar();
   }catch(err){ e.textContent = String(err.message||err); }
 };
-/* Tres niveis, nao dois:
-     fora de dre_admins          -> le, exporta e simula
-     em dre_admins, pode_editar  -> ... e atualiza
-     em dre_admins + pode_editar -> ... e edita celula e escreve nota
-   A coluna pode_editar pode nao existir ainda (falta rodar a migracao); nesse
-   caso quem esta na tabela edita, que e como era antes -- nao da para tirar
+/* Quatro niveis:
+     fora de dre_admins  -> le, exporta e simula
+     atualiza            -> ... e dispara a busca de dados novos
+     edita               -> ... e muda celula e escreve nota
+     dono                -> ... e ve o registro de quem fez o que
+   A coluna `nivel` pode nao existir ainda (falta rodar a migracao); nesse caso
+   quem esta na tabela edita, que e como era antes -- nao da para tirar
    permissao de quem ja tinha sem o banco saber distinguir. */
+const ORDEM_NIVEL = {atualiza: 1, edita: 2, dono: 3};
 async function definirNivel(){
   const adm = await sb("dre_admins?select=*&email=eq."
                        + encodeURIComponent(S.sessao.user.email));
   const linha = adm && adm[0];
-  S.podeAtualizar = !!linha;
-  S.admin = !!linha && (linha.pode_editar === undefined || linha.pode_editar);
+  S.nivel = linha ? (linha.nivel || "edita") : "le";
+  const n = ORDEM_NIVEL[S.nivel] || 0;
+  S.podeAtualizar = n >= 1;
+  S.admin = n >= 2;
+  S.dono = n >= 3;
+}
+
+/* Registra o que a pessoa FEZ -- entrou, mandou atualizar. Nunca o que ela
+   olhou. Falha calada de proposito: um registro que nao grava nao pode
+   impedir alguem de entrar nem de atualizar. */
+async function registrar(acao, detalhe){
+  try{
+    await sb("dre_log", {method:"POST", headers:{Prefer:"return=minimal"},
+      body:JSON.stringify([{projeto:CONFIG.PROJETO, quem:S.sessao.user.email,
+                            acao, detalhe: detalhe || null}])});
+  }catch(e){ /* tabela ainda nao existe, ou sem permissao */ }
 }
 
 document.getElementById("lg-senha").onkeydown = ev =>
@@ -2351,6 +2471,7 @@ document.getElementById("sair").onclick = ()=>{
   try{
     S.sessao = JSON.parse(g);
     await definirNivel();
+    registrar("entrou", "sessão guardada");
     document.getElementById("login").classList.add("oculto");
     await iniciar();
   }catch(_){ localStorage.removeItem("dre_sessao"); }
