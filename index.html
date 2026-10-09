@@ -219,6 +219,28 @@ tr.n0 .caret,tr.n1 .caret{color:rgba(255,255,255,.6)}
 .temnota{color:var(--amber);font-size:11px;margin-left:5px;cursor:help}
 
 /* ---------- simulador ---------- */
+/* ---- simulador de cenarios ---- */
+#t-sim td.rotulo,#t-sim th.rotulo{text-align:left;white-space:nowrap;width:210px}
+#t-sim td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#t-sim input{width:104px;text-align:right;padding:3px 6px;font-size:12.5px;
+  border:1px solid var(--border);border-radius:5px;
+  font-variant-numeric:tabular-nums}
+#t-sim input:focus{outline:2px solid var(--green);outline-offset:-1px}
+/* o cadeado fica discreto enquanto trancado: sao 40 deles na tela, e todos
+   gritando seria ruido */
+#t-sim .cad{background:none;border:0;padding:0 5px 0 0;font-size:11px;
+  opacity:.35;cursor:pointer;line-height:1}
+#t-sim .cad:hover{opacity:1}
+#t-sim td.num.aberta{background:var(--green-light)}
+#t-sim td.num.aberta .cad{opacity:1}
+#t-sim td.num.aberta .resp{display:inline-block;width:104px;padding:3px 6px;
+  font-weight:700;color:var(--green-dark);font-variant-numeric:tabular-nums}
+.sim-estado{margin:10px 0;padding:9px 13px;border-radius:8px;font-size:13px;
+  background:var(--surface);border:1px solid var(--border)}
+.sim-estado.bom{background:var(--green-light);border-color:var(--green);
+  color:var(--green-dark)}
+.sim-estado.ruim{background:#FFF8E8;border-color:#F0DCAE;color:#7A5A12}
+.sim-estado .btn{margin-left:10px;padding:3px 10px;font-size:12px}
 .sim-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
   gap:14px;align-items:start}
 .sim-cx{background:var(--surface);border:1px solid var(--border);border-radius:10px;
@@ -1397,18 +1419,37 @@ async function renderFonte(){
   };
 }
 
-/* ===================== simulador de combustível =====================
-   Diesel e gasolina sao 94% do faturamento (media de 9 meses, desvio 0,74%).
-   Eles entram linha a linha, montados de baixo para cima. O resto -- etanol,
-   arla, lubrificantes, conveniencia -- entra pela proporcao historica: se os
-   dois sempre valeram X% do faturamento, o total e o deles dividido por X%, e
-   a diferenca traz a margem dos demais na taxa que eles costumam dar.
+/* ===================== simulador de cenários =====================
+   Os cinco combustiveis entram linha a linha, montados de baixo para cima. O
+   resto -- arla, lubrificantes, conveniencia -- entra pela proporcao
+   historica: se o combustivel sempre valeu X% do faturamento, o total e o
+   dele dividido por X%, e a diferenca traz a margem dos demais na taxa que
+   eles costumam dar.
 
-   Isso importa na simulacao: quando o volume de combustivel sobe, a loja sobe
-   junto. Tratar o resto como valor fixo subestimaria o ganho.              */
+   Isso importa: quando o volume de combustivel sobe, a loja sobe junto.
+   Tratar o resto como valor fixo subestimaria o ganho.
 
-const SIM = { mes:null, campos:{}, alvo:"dsl", litros:null, cmv:null };
-const PROD = { dsl:"Diesel", gas:"Gasolina" };
+   O CADEADO: tudo comeca trancado, com o numero do mes escolhido. Destrancar
+   uma celula quer dizer "nao sei esta, me diz qual ela precisa ser". O app
+   resolve para o alvo de resultado. Destrancar duas nao tem resposta unica --
+   a tela diz isso e oferece o conserto, em vez de so reclamar.             */
+
+const SIM = { mes:null, campos:{}, abertas:[], alvoTipo:"zero", alvoValor:0 };
+
+const CAMPOS = [
+  {k:"litros",   rot:"Litros vendidos",       sinal:"",    dec:0},
+  {k:"preco",    rot:"Preço de venda",        sinal:"(=)", dec:4},
+  {k:"desconto", rot:"Desconto",              sinal:"(−)", dec:4},
+  {k:"imposto",  rot:"Impostos s/ faturamento", sinal:"(−)", dec:4},
+  {k:"cartao",   rot:"Taxa de cartão",        sinal:"(−)", dec:4},
+  {k:"cmv",      rot:"CMV (preço de compra)", sinal:"(−)", dec:4},
+  {k:"desloc",   rot:"Desloc. de produtos",   sinal:"(−)", dec:4},
+  {k:"comissao", rot:"Comissões e incentivos", sinal:"(−)", dec:4},
+];
+
+function produtosSim(){
+  return (S.produtos || []).map(p => ({id:p.id, rot:p.rotulo}));
+}
 
 function mesCorrente(){
   const h = new Date();
@@ -1417,27 +1458,30 @@ function mesCorrente(){
 const mesAberto = m => m >= mesCorrente();
 function mesesFechados(){ return S.meses.slice(); }
 
-/* Numeros do mes, por litro de cada produto. Preco, desconto e CMV sao do
-   proprio produto; imposto, cartao, deslocamento e comissao servem a todos os
-   combustiveis, entao rateiam pelo litro de combustivel do mes.            */
 function baseDoMes(mes){
   const f = S.fato[mes] || {}, c = calcular(mes);
   const qC = f["vnd:qtd_comb"] || 0;
   if(!qC) return null;
   const abs = n => Math.abs(c[n] || 0);
+  // rateios: valem por litro de combustivel, iguais para todos os produtos
   const rateio = { imposto: abs(12)/qC, cartao: abs(20)/qC,
                    desloc: abs(31)/qC, comissao: abs(37)/qC };
   const out = { litrosComb:qC, rateio, prod:{},
                 fatTotal: f["vnd:bruto_total"] || 0 };
-  for(const p in PROD){
-    const q = f[p+":qtd"] || 0;
-    if(!q) return null;
-    out.prod[p] = { litros:q, preco:(f[p+":bruto"]||0)/q,
-                    desconto:(f[p+":desconto"]||0)/q, cmv:(f[p+":custo"]||0)/q,
-                    ...rateio };
+  let fatComb = 0;
+  for(const p of produtosSim()){
+    const q = f["cmb:qtd:"+p.id] || 0;
+    const bruto = f["cmb:bruto:"+p.id] || 0;
+    out.prod[p.id] = q
+      ? { litros:q, preco:bruto/q,
+          desconto:(f["cmb:desconto:"+p.id]||0)/q,
+          cmv:(f["cmb:custo:"+p.id]||0)/q, ...rateio }
+      : { litros:0, preco:0, desconto:0, cmv:0, ...rateio };
+    fatComb += bruto;
   }
-  out.fatDG = (f["dsl:bruto"]||0) + (f["gas:bruto"]||0);
-  out.pctDG = out.fatTotal ? out.fatDG/out.fatTotal : 0;
+  if(!fatComb) return null;
+  out.fatComb = fatComb;
+  out.pctComb = out.fatTotal ? fatComb/out.fatTotal : 0;
   out.mcTotal = c[42] || 0;
   return out;
 }
@@ -1457,199 +1501,224 @@ function fixoMedio(mes, n = 3){
   return {valor: janela.reduce((s,m)=> s + fixoDoMes(m), 0)/janela.length, meses:janela};
 }
 
-const num = v => (v===null||v===undefined||isNaN(v)) ? "" :
+const num4 = v => (v===null||v===undefined||isNaN(v)) ? "" :
   v.toLocaleString("pt-BR",{minimumFractionDigits:4,maximumFractionDigits:4});
-const int = v => (v===null||isNaN(v)) ? "" :
+const int0 = v => (v===null||v===undefined||isNaN(v)) ? "" :
   Math.round(v).toLocaleString("pt-BR");
+const porCampo = (v, k) => k === "litros" ? int0(v) : num4(v);
+
+/* O modelo inteiro num lugar so: dos campos ao resultado. O solucionador
+   chama isto duas vezes e nao precisa saber de nada mais. */
+function rodarModelo(K, b, fixo){
+  const taxaDemais = (() => {
+    const mcComb = produtosSim().reduce(
+      (s,p)=> s + margemLitro(b.prod[p.id]) * b.prod[p.id].litros, 0);
+    const fatDemais = b.fatTotal - b.fatComb;
+    return fatDemais ? (b.mcTotal - mcComb)/fatDemais : 0;
+  })();
+  let fatComb = 0, mcComb = 0;
+  const porProd = {};
+  for(const p of produtosSim()){
+    const k = K[p.id], m = margemLitro(k);
+    porProd[p.id] = {mc:m, litros:k.litros, fat:k.preco*k.litros, mcTotal:m*k.litros};
+    fatComb += porProd[p.id].fat; mcComb += porProd[p.id].mcTotal;
+  }
+  const fatTotal = b.pctComb ? fatComb/b.pctComb : 0;
+  const mcDemais = (fatTotal - fatComb) * taxaDemais;
+  const mcTudo = mcComb + mcDemais;
+  return {porProd, fatComb, mcComb, fatTotal, mcDemais, mcTudo,
+          resultado: mcTudo - fixo};
+}
+
+/* Resolve a celula destrancada. O resultado e LINEAR em qualquer um dos
+   campos, entao medir a inclinacao com dois pontos da a resposta exata -- nao
+   e aproximacao nem busca. */
+function resolverCelula(chave, K, b, fixo, alvo){
+  const [prod, campo] = chave.split("|");
+  const copia = () => {
+    const c = {};
+    for(const p of produtosSim()) c[p.id] = {...K[p.id]};
+    return c;
+  };
+  const em = x => { const c = copia(); c[prod][campo] = x;
+                    return rodarModelo(c, b, fixo).resultado; };
+  const r0 = em(0), r1 = em(1);
+  const inclinacao = r1 - r0;
+  if(Math.abs(inclinacao) < 1e-9) return {erro:"esta célula não muda o resultado"};
+  const x = (alvo - r0) / inclinacao;
+  if(!isFinite(x)) return {erro:"não dá para resolver com estes números"};
+  return {valor:x};
+}
 
 function renderSim(){
-  const meses = mesesFechados();
   const el = document.getElementById("c-sim");
+  const meses = mesesFechados();
   if(!meses.length){ el.innerHTML='<div class="vazio">Sem meses na base.</div>'; return; }
-  SIM.mes = SIM.mes && meses.includes(SIM.mes) ? SIM.mes : meses[meses.length-1];
+  // abre no ultimo mes FECHADO: o mes em curso tem litros pela metade e custo
+  // fixo inteiro, entao abrir nele faz o cenario nascer torto
+  const fechados = meses.filter(m => !mesAberto(m));
+  SIM.mes = SIM.mes && meses.includes(SIM.mes) ? SIM.mes
+          : (fechados[fechados.length-1] || meses[meses.length-1]);
   const b = baseDoMes(SIM.mes);
-  if(!b){ el.innerHTML='<div class="vazio">Sem venda de combustível neste mês.</div>'; return; }
-
+  const PR = produtosSim();
+  if(!b || !PR.length){
+    el.innerHTML = '<div class="vazio">Sem venda de combustível neste mês.</div>';
+    return;
+  }
   if(SIM.campos._mes !== SIM.mes){
     SIM.campos = {_mes:SIM.mes};
-    for(const p in PROD) SIM.campos[p] = {...b.prod[p]};
-    SIM.litros = null; SIM.cmv = null;
+    for(const p of PR) SIM.campos[p.id] = {...b.prod[p.id]};
+    SIM.abertas = [];
   }
   const K = SIM.campos, fx = fixoMedio(SIM.mes);
+  const alvo = SIM.alvoTipo === "zero" ? 0
+             : SIM.alvoTipo === "base" ? (b.mcTotal - fx.valor)
+             : (SIM.alvoValor || 0);
 
-  /* --- taxa de margem dos demais, do historico --- */
-  const mcHistDG = Object.keys(PROD)
-        .reduce((s,p)=> s + margemLitro(b.prod[p])*b.prod[p].litros, 0);
-  const fatDemaisHist = b.fatTotal - b.fatDG;
-  const mcDemaisHist  = b.mcTotal - mcHistDG;
-  const taxaDemais = fatDemaisHist ? mcDemaisHist/fatDemaisHist : 0;
-
-  /* --- situacao simulada --- */
-  let fatDG = 0, mcDG = 0;
-  const porProd = {};
-  for(const p in PROD){
-    const m = margemLitro(K[p]);
-    porProd[p] = {mc:m, litros:K[p].litros, fat:K[p].preco*K[p].litros,
-                  mcTotal:m*K[p].litros};
-    fatDG += porProd[p].fat; mcDG += porProd[p].mcTotal;
+  // a celula destrancada deixa de ser entrada e vira resposta
+  let resposta = null;
+  if(SIM.abertas.length === 1){
+    resposta = resolverCelula(SIM.abertas[0], K, b, fx.valor, alvo);
+    if(resposta.valor !== undefined){
+      const [p, c] = SIM.abertas[0].split("|");
+      K[p][c] = resposta.valor;
+    }
   }
-  const fatTotalSim = b.pctDG ? fatDG/b.pctDG : 0;
-  const fatDemais   = fatTotalSim - fatDG;
-  const mcDemais    = fatDemais * taxaDemais;
-  const mcTudo      = mcDG + mcDemais;
-  const resultado   = mcTudo - fx.valor;
-  const fator       = mcTudo > 0 ? fx.valor/mcTudo : null;   // escala p/ empatar
+  const M = rodarModelo(K, b, fx.valor);
 
-  const linhaProd = (rot, chave, sinal, ajuda) => `
-    <tr><td>${sinal||""} ${rot}${ajuda?`<span class="aj" title="${ajuda}">?</span>`:""}</td>
-      ${Object.keys(PROD).map(p=>`<td class="num"><input type="text"
-         data-p="${p}" data-k="${chave}" value="${num(K[p][chave])}"></td>`).join("")}</tr>`;
+  const cab = PR.map(p => `<th>${p.rot}</th>`).join("");
+  const linha = c => `<tr><td class="rotulo">${c.sinal} ${c.rot}</td>` +
+    PR.map(p => {
+      const chave = p.id+"|"+c.k, aberta = SIM.abertas.includes(chave);
+      const v = K[p.id][c.k];
+      return `<td class="num${aberta?" aberta":""}">`
+        + `<button class="cad" data-cad="${chave}" title="${aberta
+            ? "trancar: volta a ser um número que você informa"
+            : "destrancar: o app calcula esta célula"}">${aberta?"🔓":"🔒"}</button>`
+        + (aberta
+            ? `<span class="resp">${porCampo(v, c.k)}</span>`
+            : `<input type="text" data-p="${p.id}" data-k="${c.k}" value="${
+                 porCampo(v, c.k)}">`)
+        + `</td>`;
+    }).join("") + `</tr>`;
+
+  const estado = SIM.abertas.length === 0
+    ? `<div class="sim-estado">Tudo trancado — a tela mostra o mês como ele foi.
+       <b>Destranque a célula que você quer descobrir.</b></div>`
+    : SIM.abertas.length === 1
+      ? (resposta && resposta.erro
+          ? `<div class="sim-estado ruim">${resposta.erro}</div>`
+          : `<div class="sim-estado bom">Resolvendo <b>${
+              nomeCelula(SIM.abertas[0], PR)}</b> para ${rotAlvo()}.</div>`)
+      : `<div class="sim-estado ruim">
+           <b>${SIM.abertas.length} células destrancadas.</b> Com mais de uma
+           há infinitas respostas — o app não tem como escolher entre elas.
+           <button class="btn" id="s-so-primeira">deixar só ${
+             nomeCelula(SIM.abertas[0], PR)}</button></div>`;
 
   el.innerHTML = `
-    <div class="barra">
-      <label>Mês base <select id="s-mes">${meses.map(m=>
-        `<option value="${m}" ${m===SIM.mes?"selected":""}>${rotMes(m)}</option>`).join("")}</select></label>
-      <span style="font-size:12px;color:var(--text-muted)">
-        diesel + gasolina = ${(b.pctDG*100).toFixed(1)}% do faturamento deste mês</span>
-      <button class="btn sec" id="s-reset">voltar ao histórico</button>
+    <div class="ctl">
+      <div class="cg"><span class="cl">Mês base</span>
+        <select id="s-mes">${meses.map(m =>
+          `<option value="${m}" ${m===SIM.mes?"selected":""}>${rotMes(m)}</option>`
+        ).join("")}</select></div>
+      <div class="cs"></div>
+      <div class="cg"><span class="cl">Para atingir</span>
+        <select id="s-alvo-tipo">
+          <option value="zero" ${SIM.alvoTipo==="zero"?"selected":""}>resultado zero (equilíbrio)</option>
+          <option value="base" ${SIM.alvoTipo==="base"?"selected":""}>o resultado do mês base</option>
+          <option value="valor" ${SIM.alvoTipo==="valor"?"selected":""}>um valor que eu digito</option>
+        </select>
+        ${SIM.alvoTipo==="valor"
+          ? `<input type="text" id="s-alvo-valor" style="width:120px"
+                    value="${int0(SIM.alvoValor)}">` : ""}</div>
+      <div class="cs"></div>
+      <button class="btn" id="s-reset">voltar ao mês base</button>
     </div>
 
-    <div class="sim-grid">
-      <div class="sim-cx" style="grid-column:span 2">
-        <h3>Composição por litro</h3>
-        <div class="sub">vem do mês escolhido — mude qualquer número para simular</div>
-        <table class="sim dois">
-          <tr class="cab"><td></td>${Object.values(PROD).map(n=>
-            `<td class="num"><b>${n}</b></td>`).join("")}</tr>
-          <tr><td>Litros vendidos</td>${Object.keys(PROD).map(p=>
-            `<td class="num"><input type="text" data-p="${p}" data-k="litros"
-               value="${int(K[p].litros)}"></td>`).join("")}</tr>
-          ${linhaProd("Preço de venda bruto","preco","")}
-          ${linhaProd("Desconto","desconto","(−)")}
-          ${linhaProd("Impostos sobre faturamento","imposto","(−)","linha 12 do DRE rateada pelos litros de combustível")}
-          ${linhaProd("Taxa de cartão","cartao","(−)","linha 20 do DRE rateada")}
-          ${linhaProd("CMV (preço de compra)","cmv","(−)")}
-          ${linhaProd("Desloc. de produtos","desloc","(−)","linha 31 rateada")}
-          ${linhaProd("Comissões e incentivos","comissao","(−)","linha 37 rateada")}
-          <tr class="tot"><td>(=) Margem por litro</td>${Object.keys(PROD).map(p=>
-            `<td class="num">${num(porProd[p].mc)}</td>`).join("")}</tr>
-          <tr class="sub-t"><td>Margem do mês</td>${Object.keys(PROD).map(p=>
-            `<td class="num">${fmt(porProd[p].mcTotal)}</td>`).join("")}</tr>
-        </table>
-      </div>
+    ${estado}
 
-      <div class="sim-cx">
-        <h3>Resultado do mês</h3>
-        <div class="sub">custo fixo médio de ${fx.meses.map(rotMes).join(", ")}</div>
-        <table class="sim">
-          <tr><td>Margem diesel + gasolina</td><td class="num">${fmt(mcDG)}</td></tr>
-          <tr><td>Faturamento dos dois</td><td class="num">${fmt(fatDG)}</td></tr>
-          <tr><td>÷ ${(b.pctDG*100).toFixed(1)}% = faturamento total
-              <span class="aj" title="proporção histórica deste mês: se os dois sempre valem essa fatia, o total sai por regra de três">?</span></td>
-              <td class="num">${fmt(fatTotalSim)}</td></tr>
-          <tr><td>Faturamento dos demais</td><td class="num">${fmt(fatDemais)}</td></tr>
-          <tr><td>× margem de ${(taxaDemais*100).toFixed(1)}%
-              <span class="aj" title="margem que etanol, arla, lubrificantes e conveniência deram neste mês">?</span></td>
-              <td class="num">${fmt(mcDemais)}</td></tr>
-          <tr class="sub-t"><td>(=) Margem total</td><td class="num"><b>${fmt(mcTudo)}</b></td></tr>
-          <tr><td>(−) Custo + despesa fixa</td><td class="num">${fmt(fx.valor)}</td></tr>
-          <tr class="tot ${resultado>=0?"bom":""}"><td>(=) Resultado</td>
-              <td class="num">${fmt(resultado)}</td></tr>
-        </table>
-      </div>
+    <div class="quadro"><table id="t-sim"><thead><tr>
+      <th class="rotulo">Por litro</th>${cab}</tr></thead><tbody>
+      ${CAMPOS.map(linha).join("")}
+      <tr class="n1"><td class="rotulo">(=) Margem por litro</td>
+        ${PR.map(p => `<td class="num">${num4(M.porProd[p.id].mc)}</td>`).join("")}</tr>
+      <tr class="n1"><td class="rotulo">(=) Margem no mês</td>
+        ${PR.map(p => `<td class="num">${fmt(M.porProd[p.id].mcTotal)}</td>`).join("")}</tr>
+    </tbody></table></div>
 
-      <div class="sim-cx">
-        <h3>Quanto falta vender</h3>
-        <div class="sub">mantendo a mistura atual entre os dois</div>
-        <table class="sim">
-          ${Object.keys(PROD).map(p=>`
-          <tr><td>${PROD[p]} — vendido</td><td class="num">${int(K[p].litros)} L</td></tr>
-          <tr><td>${PROD[p]} — para empatar</td>
-              <td class="num"><b>${fator!==null?int(K[p].litros*fator):"—"} L</b></td></tr>`).join("")}
-          <tr class="tot ${fator!==null&&fator<=1?"bom":""}">
-            <td>${fator!==null&&fator<=1?"Sobra sobre o equilíbrio":"Faltam vender"}</td>
-            <td class="num">${fator!==null
-              ? int(Math.abs(Object.keys(PROD).reduce((s,p)=>s+K[p].litros*(fator-1),0)))+" L"
-              : "—"}</td></tr>
-        </table>
-        ${mcTudo<=0?'<div class="aviso" style="margin-top:12px">Margem total negativa: não existe ponto de equilíbrio — vender mais aumenta o prejuízo.</div>':""}
-        ${mesAberto(SIM.mes)?`<div class="sim-nota" style="color:var(--amber)">
-          <b>${rotMes(SIM.mes)} ainda está em curso.</b> Litros e margem são
-          parciais, mas o custo fixo é de um mês inteiro — isto responde quanto
-          ainda falta vender até fechar o mês.</div>`:""}
-      </div>
-
-      <div class="sim-cx destaque" style="grid-column:span 2">
-        <h3>Caminho inverso</h3>
-        <div class="sub">tenho este custo e quero vender esta litragem — a que preço?</div>
-        <table class="sim">
-          <tr><td>Produto</td><td class="num">
-            <select id="s-alvo">${Object.keys(PROD).map(p=>
-              `<option value="${p}" ${p===SIM.alvo?"selected":""}>${PROD[p]}</option>`).join("")}</select>
-          </td></tr>
-          <tr><td>Preço de compra (CMV/L)</td><td class="num">
-            <input type="text" id="s-cmv" value="${num(SIM.cmv!==null?SIM.cmv:K[SIM.alvo].cmv)}"></td></tr>
-          <tr><td>Litragem pretendida (L)</td><td class="num">
-            <input type="text" id="s-litros" value="${int(SIM.litros!==null?SIM.litros:K[SIM.alvo].litros)}"></td></tr>
-        </table>
-        <div id="s-resp"></div>
-      </div>
+    <div class="cards" style="margin-top:12px">
+      <div class="card"><div class="rot">Margem dos combustíveis</div>
+        <div class="val">${fmt(M.mcComb)}</div></div>
+      <div class="card"><div class="rot">Margem dos demais (estimada)</div>
+        <div class="val">${fmt(M.mcDemais)}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:3px">
+          combustível é ${fmtPct(b.pctComb)} do faturamento</div></div>
+      <div class="card"><div class="rot">Custo e despesa fixa</div>
+        <div class="val">${fmt(-fx.valor)}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:3px">
+          média de ${fx.meses.map(rotMes).join(", ")}</div></div>
+      <div class="card"><div class="rot">Resultado</div>
+        <div class="val" style="color:${M.resultado<0?"var(--red)":"var(--green)"}">
+          ${fmt(M.resultado)}</div></div>
     </div>
 
-    <div class="aviso" style="margin-top:16px">
-      <b>Imposto quase zerado por litro não é erro.</b> Combustível é
-      <b>monofásico</b>: o ICMS/PIS/COFINS já está dentro do preço de compra, não
-      é debitado na venda. O que entra aqui como imposto é a linha do DRE
-      rateada — mexer no CMV já mexe no tributo embutido.
-      <br><br><b>O resto do negócio acompanha o volume.</b> Etanol, arla,
-      lubrificantes e conveniência entram pela proporção histórica
-      (diesel + gasolina = ${(b.pctDG*100).toFixed(1)}% do faturamento neste mês,
-      média de 94,1% no ano com desvio de 0,7%). Se você simular mais volume, a
-      loja cresce junto — tratá-la como valor fixo subestimaria o ganho.
+    ${mesAberto(SIM.mes) ? `<div class="aviso" style="margin-top:12px">
+      <b>${rotMes(SIM.mes)} ainda está em curso.</b> Litros e margem são
+      parciais, mas o custo fixo é de um mês inteiro — o resultado sai pior do
+      que vai ser.</div>` : ""}
+
+    <div class="aviso" style="margin-top:12px">
+      <b>Como usar.</b> Tudo começa trancado, com os números do mês escolhido.
+      Mude à mão o que você já sabe e <b>destranque a célula que quer
+      descobrir</b> — o app calcula qual ela precisa ser para o resultado bater
+      o alvo. Uma célula de cada vez: com duas em aberto, qualquer combinação
+      das duas serviria.
+      <div style="margin-top:7px">A margem dos demais produtos não é digitada:
+      ela acompanha o faturamento de combustível, pela proporção histórica. Por
+      isso vender mais combustível melhora o resultado mais do que a margem do
+      litro sozinha explicaria.</div>
     </div>`;
 
-  // --- caminho inverso, calculado sobre o produto escolhido ---
-  const k = K[SIM.alvo];
-  const cmvSim = SIM.cmv !== null ? SIM.cmv : k.cmv;
-  const litrosSim = SIM.litros !== null ? SIM.litros : k.litros;
-  const outro = Object.keys(PROD).find(p => p !== SIM.alvo);
-  // o outro produto e os demais seguem como estao; sobra para este pagar o resto
-  const mcOutro = porProd[outro].mcTotal;
-  const fatOutro = porProd[outro].fat;
-  const variaveis = k.desconto + k.imposto + k.cartao + k.desloc + k.comissao;
-  // preco tal que: mc(este) + mc(outro) + mc(demais) = custo fixo
-  // mc(demais) depende do faturamento total, que depende do preco -> resolve direto
-  const a = b.pctDG ? (1/b.pctDG - 1) * taxaDemais : 0;   // margem demais por R$ de D+G
-  const precoNec = litrosSim > 0
-    ? (fx.valor - mcOutro - fatOutro*a + litrosSim*(cmvSim + variaveis)) /
-      (litrosSim * (1 + a))
-    : null;
-  document.getElementById("s-resp").innerHTML = `
-    <table class="sim" style="margin-top:2px">
-      <tr><td>Demais custos por litro</td><td class="num">${num(variaveis)}</td></tr>
-      <tr><td>Margem que ${PROD[outro].toLowerCase()} e a loja já trazem</td>
-          <td class="num">${fmt(mcOutro + fatOutro*a)}</td></tr>
-      <tr class="tot grande"><td>Preço de venda necessário</td>
-          <td class="num">${precoNec!==null?num(precoNec):"—"}</td></tr>
-    </table>
-    <div class="sim-nota">Preço que zera o resultado do mês inteiro, já contando
-      o que ${PROD[outro].toLowerCase()} e o resto da loja contribuem.
-      ${precoNec!==null?`Hoje o praticado é <b>${num(b.prod[SIM.alvo].preco)}</b>
-      — diferença de <b>${num(precoNec-b.prod[SIM.alvo].preco)}</b> por litro.`:""}</div>`;
+  // --- ligações ---
+  document.getElementById("s-mes").onchange = e => {
+    SIM.mes = e.target.value; SIM.campos = {}; renderSim(); };
+  document.getElementById("s-reset").onclick = () => {
+    SIM.campos = {}; SIM.abertas = []; renderSim(); };
+  document.getElementById("s-alvo-tipo").onchange = e => {
+    SIM.alvoTipo = e.target.value; renderSim(); };
+  const av = document.getElementById("s-alvo-valor");
+  if(av) av.onchange = e => { SIM.alvoValor = lerNum(e.target.value); renderSim(); };
+  const so1 = document.getElementById("s-so-primeira");
+  if(so1) so1.onclick = () => { SIM.abertas = SIM.abertas.slice(0,1); renderSim(); };
 
-  const ler = t => parseFloat(String(t).replace(/\./g,"").replace(",",".")) || 0;
-  document.getElementById("s-mes").onchange = e => { SIM.mes=e.target.value; renderSim(); };
-  document.getElementById("s-reset").onclick = () => { SIM.campos={}; SIM.cmv=null; SIM.litros=null; renderSim(); };
-  document.getElementById("s-alvo").onchange = e => { SIM.alvo=e.target.value; SIM.cmv=null; SIM.litros=null; renderSim(); };
-  document.getElementById("s-cmv").onchange = e => { SIM.cmv=ler(e.target.value); renderSim(); };
-  document.getElementById("s-litros").onchange = e => { SIM.litros=Math.max(1,Math.round(ler(e.target.value))); renderSim(); };
-  document.querySelectorAll("#c-sim input[data-p]").forEach(i=>{
-    i.onchange = () => {
-      const v = ler(i.value);
-      SIM.campos[i.dataset.p][i.dataset.k] = i.dataset.k==="litros" ? Math.max(0,Math.round(v)) : v;
-      renderSim();
-    };
+  el.querySelectorAll("button[data-cad]").forEach(btn => btn.onclick = () => {
+    const c = btn.dataset.cad;
+    if(SIM.abertas.includes(c)) SIM.abertas = SIM.abertas.filter(x => x !== c);
+    else SIM.abertas.push(c);
+    renderSim();
   });
+  el.querySelectorAll("#t-sim input[data-p]").forEach(i => i.onchange = () => {
+    const v = lerNum(i.value);
+    SIM.campos[i.dataset.p][i.dataset.k] =
+      i.dataset.k === "litros" ? Math.max(0, Math.round(v)) : v;
+    renderSim();
+  });
+}
+
+const lerNum = t => parseFloat(String(t).replace(/\./g,"").replace(",",".")) || 0;
+
+function nomeCelula(chave, PR){
+  const [p, c] = chave.split("|");
+  const prod = (PR || produtosSim()).find(x => x.id === p);
+  const campo = CAMPOS.find(x => x.k === c);
+  return (campo ? campo.rot.toLowerCase() : c) + " do " + (prod ? prod.rot : p);
+}
+
+function rotAlvo(){
+  return SIM.alvoTipo === "zero" ? "o equilíbrio"
+       : SIM.alvoTipo === "base" ? "o resultado do mês base"
+       : fmt(SIM.alvoValor) + " de resultado";
 }
 
 
