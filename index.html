@@ -1747,10 +1747,10 @@ async function renderAtu(){
     </div>
 
     <div class="barra">
-      <button class="btn" id="a-atualizar"${S.admin?"":" disabled"}>⟳ Atualizar agora</button>
+      <button class="btn" id="a-atualizar"${S.podeAtualizar?"":" disabled"}>⟳ Atualizar agora</button>
       <span id="a-estado" style="font-size:12px;color:var(--text-muted)">${
-        S.admin ? "vai ao webPosto buscar movimento novo — leva ~4 min, na nuvem"
-                : "só quem edita pode disparar uma atualização"}</span>
+        S.podeAtualizar ? "vai ao webPosto buscar movimento novo — leva ~4 min, na nuvem"
+                        : "seu acesso é de leitura; peça a quem atualiza"}</span>
     </div>
 
     <div class="aviso">
@@ -1778,7 +1778,7 @@ async function renderAtu(){
     </div>`;
 
   const btAtu = document.getElementById("a-atualizar");
-  if(btAtu && S.admin){
+  if(btAtu && S.podeAtualizar){
     btAtu.onclick = ()=> dispararAtualizacao(btAtu);
     // se uma rodada ja estava em curso quando a aba abriu, mostra e acompanha
     apiWorker("/api/status").then(st=>{
@@ -2307,7 +2307,8 @@ async function iniciar(){
   };
   sel("f-de", S.de); sel("f-ate", S.ate);
   document.getElementById("quem").textContent =
-    S.sessao.user.email + (S.admin ? " · admin" : " · leitura");
+    S.sessao.user.email + (S.admin ? " · edita"
+                         : S.podeAtualizar ? " · atualiza" : " · leitura");
   renderDre();
 }
 
@@ -2317,13 +2318,26 @@ document.getElementById("lg-entrar").onclick = async ()=>{
     S.sessao = await entrar(document.getElementById("lg-email").value.trim(),
                             document.getElementById("lg-senha").value);
     localStorage.setItem("dre_sessao", JSON.stringify(S.sessao));
-    const adm = await sb("dre_admins?select=email&email=eq."+
-                         encodeURIComponent(S.sessao.user.email));
-    S.admin = !!adm?.length;
+    await definirNivel();
     document.getElementById("login").classList.add("oculto");
     await iniciar();
   }catch(err){ e.textContent = String(err.message||err); }
 };
+/* Tres niveis, nao dois:
+     fora de dre_admins          -> le, exporta e simula
+     em dre_admins, pode_editar  -> ... e atualiza
+     em dre_admins + pode_editar -> ... e edita celula e escreve nota
+   A coluna pode_editar pode nao existir ainda (falta rodar a migracao); nesse
+   caso quem esta na tabela edita, que e como era antes -- nao da para tirar
+   permissao de quem ja tinha sem o banco saber distinguir. */
+async function definirNivel(){
+  const adm = await sb("dre_admins?select=*&email=eq."
+                       + encodeURIComponent(S.sessao.user.email));
+  const linha = adm && adm[0];
+  S.podeAtualizar = !!linha;
+  S.admin = !!linha && (linha.pode_editar === undefined || linha.pode_editar);
+}
+
 document.getElementById("lg-senha").onkeydown = ev =>
   { if(ev.key==="Enter") document.getElementById("lg-entrar").click(); };
 
@@ -2336,9 +2350,7 @@ document.getElementById("sair").onclick = ()=>{
   if(!g) return;
   try{
     S.sessao = JSON.parse(g);
-    const adm = await sb("dre_admins?select=email&email=eq."+
-                         encodeURIComponent(S.sessao.user.email));
-    S.admin = !!adm?.length;
+    await definirNivel();
     document.getElementById("login").classList.add("oculto");
     await iniciar();
   }catch(_){ localStorage.removeItem("dre_sessao"); }
